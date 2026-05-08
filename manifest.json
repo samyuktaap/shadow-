@@ -33,11 +33,11 @@
     "default_popup": "src/pages/popup.html"
   },
   "icons": {
-    "128": "assets/icon128.png"
+    "128": "public/icon128.png"
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/pages/report.html", "src/pages/dashboard.html", "src/pages/pro.html", "assets/world-map.svg"],
+      "resources": ["src/pages/report.html", "src/pages/dashboard.html", "src/pages/pro.html", "public/world-map.svg"],
       "matches": ["<all_urls>"]
     }
   ]

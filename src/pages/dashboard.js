@@ -219,7 +219,7 @@ function renderPrivacyMap() {
   const land = document.createElementNS(ns, 'g');
 
   // Load highly realistic SVG map dynamically
-  fetch(chrome.runtime.getURL('assets/world-map.svg'))
+  fetch(chrome.runtime.getURL('public/world-map.svg'))
     .then(r => r.text())
     .then(text => {
       const parser = new DOMParser();
