@@ -9,8 +9,13 @@
     "tabs",
     "activeTab",
     "scripting",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "605149597240-evauu46jjo7s802tbnaphnpvenoklqml.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  },
   "host_permissions": [
     "<all_urls>"
   ],
