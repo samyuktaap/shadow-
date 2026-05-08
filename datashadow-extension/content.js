@@ -46,36 +46,131 @@ function showProtectedBadge() {
   
   wrapper.innerHTML = `
     <style>
-      .ds-badge {
+      .ds-shield-panel {
         position: fixed;
         bottom: 20px;
         right: 20px;
-        background: #00ff88;
-        color: #004422;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-family: sans-serif;
-        font-weight: bold;
-        font-size: 12px;
-        box-shadow: 0 4px 15px rgba(0,255,136,0.3);
+        background: rgba(10, 15, 25, 0.95);
+        color: #e2e8f0;
+        padding: 14px 18px;
+        border-radius: 14px;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-size: 13px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         z-index: 2147483647;
-        animation: fadeInOut 4s forwards;
+        border: 1px solid rgba(0,255,136,0.25);
+        backdrop-filter: blur(12px);
+        animation: slideUp 0.4s ease-out;
+        min-width: 240px;
       }
-      @keyframes fadeInOut {
-        0% { opacity: 0; transform: translateY(20px); }
-        10% { opacity: 1; transform: translateY(0); }
-        80% { opacity: 1; transform: translateY(0); }
-        100% { opacity: 0; transform: translateY(20px); }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
+      .ds-shield-header {
+        display: flex; align-items: center; gap: 8px;
+        margin-bottom: 12px; font-weight: 700; font-size: 14px;
+        color: #00ff88;
+      }
+      .ds-shield-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #00ff88;
+        box-shadow: 0 0 8px rgba(0,255,136,0.6);
+        animation: pulse 2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,100% { opacity:1; transform:scale(1); }
+        50% { opacity:0.5; transform:scale(1.3); }
+      }
+      .ds-shield-info {
+        font-size: 11px; color: #94a3b8;
+        margin-bottom: 12px; line-height: 1.5;
+      }
+      .ds-shield-btns {
+        display: flex; gap: 8px;
+      }
+      .ds-shield-btns button {
+        flex: 1;
+        padding: 7px 10px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 11px;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      .ds-btn-report {
+        background: #ff3333; color: #fff;
+      }
+      .ds-btn-report:hover { background: #ff4444; box-shadow: 0 0 12px rgba(255,51,51,0.3); }
+      .ds-btn-dash {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: #38bdf8;
+        border: 1px solid rgba(56,189,248,0.3) !important;
+      }
+      .ds-btn-dash:hover { border-color: rgba(56,189,248,0.6) !important; box-shadow: 0 0 12px rgba(56,189,248,0.2); }
+      .ds-btn-pro {
+        display: block; width: 100%; margin-top: 8px;
+        padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(167,139,250,0.3);
+        background: linear-gradient(135deg, rgba(167,139,250,0.15), rgba(56,189,248,0.15));
+        color: #a78bfa; font-weight: 700; font-size: 11px; cursor: pointer;
+        transition: all 0.2s; font-family: inherit;
+      }
+      .ds-btn-pro:hover { box-shadow: 0 0 12px rgba(167,139,250,0.2); }
+      .ds-dismiss {
+        position: absolute; top: 8px; right: 10px;
+        background: none; border: none;
+        color: #475569; cursor: pointer;
+        font-size: 16px; line-height: 1;
+      }
+      .ds-dismiss:hover { color: #94a3b8; }
     </style>
-    <div class="ds-badge">🛡️ Shadow Shield Active</div>
+    <div class="ds-shield-panel">
+      <button class="ds-dismiss" id="ds-close">×</button>
+      <div class="ds-shield-header">
+        <span class="ds-shield-dot"></span>
+        🛡️ Shadow Shield Active
+      </div>
+      <div class="ds-shield-info">
+        Blocking trackers from <strong>50 domains</strong>. Your browsing is protected.
+      </div>
+      <div class="ds-shield-btns">
+        <button class="ds-btn-report" id="ds-report">Full Report →</button>
+        <button class="ds-btn-dash" id="ds-dash">📊 Dashboard</button>
+      </div>
+      <button class="ds-btn-pro" id="ds-pro">⚡ Pro Features</button>
+    </div>
   `;
   
   shadow.appendChild(wrapper);
   document.body.appendChild(container);
 
-  // Auto-remove after animation
-  setTimeout(() => container.remove(), 4000);
+  shadow.getElementById('ds-close').onclick = () => container.remove();
+
+  shadow.getElementById('ds-report').onclick = () => {
+    const a = document.createElement('a');
+    a.href = chrome.runtime.getURL('report.html');
+    a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  shadow.getElementById('ds-dash').onclick = () => {
+    const a = document.createElement('a');
+    a.href = chrome.runtime.getURL('dashboard.html');
+    a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  shadow.getElementById('ds-pro').onclick = () => {
+    const a = document.createElement('a');
+    a.href = chrome.runtime.getURL('pro.html');
+    a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
+  // Auto-hide after 15 seconds
+  setTimeout(() => container.remove(), 15000);
 }
 
 function showDynamicAlert(count, fields, names, domain, classification) {
@@ -213,6 +308,8 @@ function showDynamicAlert(count, fields, names, domain, classification) {
       <button class="ds-btn-block" id="block-ds">Block & Clean 🛡️</button>
       <button class="ds-btn-nav" id="nav-ds">Full Report →</button>
     </div>
+    <button class="ds-btn-dashboard" id="dash-ds">📊 Value Dashboard</button>
+    <button class="ds-btn-pro-alert" id="pro-ds">⚡ Pro Features</button>
   `;
 
   shadow.appendChild(wrapper);
@@ -234,6 +331,33 @@ function showDynamicAlert(count, fields, names, domain, classification) {
     }
     .ds-btn-block:hover { background: #00cc6e; transform: scale(1.05); }
     .ds-btn-nav { font-size: 11px; padding: 6px 8px; }
+    .ds-btn-dashboard {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 8px 0;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: #38bdf8;
+      border: 1px solid rgba(56,189,248,0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      transition: 0.2s;
+      text-align: center;
+    }
+    .ds-btn-dashboard:hover {
+      background: linear-gradient(135deg, #16213e, #0f3460);
+      border-color: rgba(56,189,248,0.6);
+      box-shadow: 0 0 12px rgba(56,189,248,0.2);
+    }
+    .ds-btn-pro-alert {
+      display: block; width: 100%; margin-top: 8px; padding: 8px 0;
+      background: linear-gradient(135deg, rgba(167,139,250,0.15), rgba(56,189,248,0.15));
+      color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); border-radius: 8px;
+      cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.2s; text-align: center;
+    }
+    .ds-btn-pro-alert:hover { box-shadow: 0 0 12px rgba(167,139,250,0.2); }
     .ds-shield-row {
       display: flex;
       justify-content: space-between;
@@ -294,6 +418,40 @@ function showDynamicAlert(count, fields, names, domain, classification) {
   };
 
   shadow.getElementById('nav-ds').onclick = () => {
-    window.open(chrome.runtime.getURL('report.html'), '_blank');
+    const reportUrl = chrome.runtime.getURL('report.html');
+    const a = document.createElement('a');
+    a.href = reportUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  // Value Dashboard button
+  shadow.getElementById('dash-ds').onclick = () => {
+    const dashUrl = chrome.runtime.getURL('dashboard.html');
+    const a = document.createElement('a');
+    a.href = dashUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  // Pro Features button
+  shadow.getElementById('pro-ds').onclick = () => {
+    const proUrl = chrome.runtime.getURL('pro.html');
+    const a = document.createElement('a');
+    a.href = proUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 }

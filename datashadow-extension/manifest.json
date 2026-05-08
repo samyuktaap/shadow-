@@ -37,7 +37,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["report.html"],
+      "resources": ["report.html", "dashboard.html", "pro.html", "world-map.svg"],
       "matches": ["<all_urls>"]
     }
   ]

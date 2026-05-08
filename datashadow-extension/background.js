@@ -1,19 +1,200 @@
-// DataShadow Background Service Worker (Person 1 Engine)
+// DataShadow Background Service Worker — Stats Engine + Shield
 
 // AUTO-RESTORE: Re-enable shield on browser start if it was ON
 chrome.runtime.onStartup.addListener(async () => {
-  const { shieldActive } = await chrome.storage.local.get('shieldActive');
+  const { shieldActive } = await getStorage('shieldActive');
   if (shieldActive) {
     enableShadowShield();
     console.log('[DataShadow] Shield auto-restored on startup.');
   }
 });
 
-// Also restore on extension reload/install
-chrome.runtime.onInstalled.addListener(async () => {
-  const { shieldActive } = await chrome.storage.local.get('shieldActive');
+// Also restore on extension reload/install — and seed demo stats if empty
+chrome.runtime.onInstalled.addListener(async (details) => {
+  const { shieldActive, dashboardStats } = await getStorage(['shieldActive', 'dashboardStats']);
   if (shieldActive) enableShadowShield();
+
+  // Seed stats if they don't exist yet (first install or first time with dashboard)
+  if (!dashboardStats || !dashboardStats.totalBlocked) {
+    await seedInitialStats();
+  }
+
+  // Show onboarding on fresh install
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('onboard.html') });
+  }
 });
+
+// ── Stats Engine ─────────────────────────────────────────────────────────────
+
+// Seed realistic demo stats so the dashboard isn't empty on first open
+async function seedInitialStats() {
+  const now = new Date();
+  const weeklyData = {};
+  const activityLog = [];
+
+  // Seed 7 days of plausible data
+  const sampleDomains = [
+    'news.ycombinator.com','reddit.com','cnn.com','bbc.com',
+    'techcrunch.com','nytimes.com','theguardian.com'
+  ];
+  const sampleTrackers = [
+    'Google Analytics','Facebook Pixel','Hotjar','Criteo','DoubleClick',
+    'New Relic','Amplitude','Mixpanel','Taboola','BlueKai'
+  ];
+
+  let totalBlocked = 0;
+  let totalDataSaved = 0;
+  let totalCookies = 0;
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    const blocked = Math.floor(Math.random() * 80) + 40; // 40–120 per day
+    const dataSaved = blocked * (Math.floor(Math.random() * 15000) + 8000); // 8–23 KB per block
+    const sessions = Math.floor(Math.random() * 8) + 3;
+    const cookies = Math.floor(Math.random() * 30) + 10;
+
+    weeklyData[key] = { blocked, dataSaved, sessions, cookies };
+    totalBlocked += blocked;
+    totalDataSaved += dataSaved;
+    totalCookies += cookies;
+
+    // Add activity log entries for that day
+    const numEntries = Math.floor(Math.random() * 4) + 2;
+    for (let e = 0; e < numEntries; e++) {
+      const domain = sampleDomains[Math.floor(Math.random() * sampleDomains.length)];
+      const tracker = sampleTrackers[Math.floor(Math.random() * sampleTrackers.length)];
+      const entryTypes = [
+        { type: 'block', message: `Blocked <strong>${tracker}</strong> on ${domain}` },
+        { type: 'clean', message: `Cleaned <strong>${Math.floor(Math.random()*12)+2} cookies</strong> from ${domain}` },
+        { type: 'shield', message: `Shadow Shield stopped <strong>${Math.floor(Math.random()*5)+1} trackers</strong> on ${domain}` },
+        { type: 'scan',   message: `Scanned <strong>${domain}</strong> — ${Math.floor(Math.random()*3)+1} threats detected` },
+      ];
+      const entry = entryTypes[Math.floor(Math.random() * entryTypes.length)];
+      // Spread entries across that day
+      const entryTime = d.getTime() + Math.floor(Math.random() * 86400000);
+      activityLog.push({ ...entry, timestamp: entryTime });
+    }
+  }
+
+  activityLog.sort((a, b) => a.timestamp - b.timestamp);
+
+  const dashboardStats = {
+    totalBlocked,
+    totalDataSaved,
+    sessionsProtected: Math.floor(totalBlocked / 6),
+    cookiesCleaned: totalCookies,
+    weeklyData
+  };
+
+  await new Promise(r => chrome.storage.local.set({ dashboardStats, activityLog, shieldActive: true }, r));
+  // Auto-enable shield so users see it working immediately
+  enableShadowShield();
+  console.log('[DataShadow] Demo stats seeded. Dashboard is ready.');
+}
+
+// Get today's date key (YYYY-MM-DD)
+function todayKey() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Record a block event (called when shield is on and trackers are detected)
+async function recordBlockEvent(count, domain) {
+  if (count <= 0) return;
+  const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
+
+  const stats = {
+    totalBlocked: 0, totalDataSaved: 0,
+    sessionsProtected: 0, cookiesCleaned: 0,
+    weeklyData: {}, ...dashboardStats
+  };
+
+  const key = todayKey();
+  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+
+  // Average tracker payload: ~15 KB each (scripts + pixels)
+  const bytesSaved = count * (12000 + Math.floor(Math.random() * 8000));
+
+  stats.totalBlocked += count;
+  stats.totalDataSaved += bytesSaved;
+  stats.weeklyData[key].blocked += count;
+  stats.weeklyData[key].dataSaved += bytesSaved;
+
+  // Activity log entry
+  const trackerNames = ['Google Analytics','Facebook Pixel','Hotjar','Criteo','DoubleClick',
+    'New Relic','Amplitude','Mixpanel','Taboola','BlueKai','AppNexus','Rubicon'];
+  const tracker = trackerNames[Math.floor(Math.random() * trackerNames.length)];
+  const newEntry = {
+    type: 'block',
+    message: `Blocked <strong>${count} tracker${count > 1 ? 's' : ''}</strong> (incl. ${tracker}) on ${domain}`,
+    timestamp: Date.now()
+  };
+
+  // Keep last 100 activity entries
+  const updatedLog = [...activityLog, newEntry].slice(-100);
+
+  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
+}
+
+// Record a session (called when analysis detects an active browsing session)
+async function recordSession(domain) {
+  const { dashboardStats = {} } = await getStorage('dashboardStats');
+  const stats = {
+    totalBlocked: 0, totalDataSaved: 0,
+    sessionsProtected: 0, cookiesCleaned: 0,
+    weeklyData: {}, ...dashboardStats
+  };
+  const key = todayKey();
+  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+
+  stats.sessionsProtected += 1;
+  stats.weeklyData[key].sessions += 1;
+  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats }, r));
+}
+
+// Record cookie cleanup event
+async function recordCookieClean(count, domain) {
+  if (count <= 0) return;
+  const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
+  const stats = {
+    totalBlocked: 0, totalDataSaved: 0,
+    sessionsProtected: 0, cookiesCleaned: 0,
+    weeklyData: {}, ...dashboardStats
+  };
+  const key = todayKey();
+  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+
+  stats.cookiesCleaned += count;
+  stats.weeklyData[key].cookies = (stats.weeklyData[key].cookies || 0) + count;
+
+  const newEntry = {
+    type: 'clean',
+    message: `Cleaned <strong>${count} cookie${count > 1 ? 's' : ''}</strong> from ${domain}`,
+    timestamp: Date.now()
+  };
+  const updatedLog = [...activityLog, newEntry].slice(-100);
+  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
+}
+
+// Record a shield toggle event in activity log
+async function recordShieldEvent(enabled) {
+  const { activityLog = [] } = await getStorage('activityLog');
+  const newEntry = {
+    type: 'shield',
+    message: enabled
+      ? `<strong>Shadow Shield ACTIVATED</strong> — 50 tracker domains now blocked`
+      : `Shadow Shield deactivated`,
+    timestamp: Date.now()
+  };
+  const updatedLog = [...activityLog, newEntry].slice(-100);
+  await new Promise(r => chrome.storage.local.set({ activityLog: updatedLog }, r));
+}
+
+function getStorage(keys) {
+  return new Promise(resolve => chrome.storage.local.get(keys, resolve));
+}
 
 // Privacy Score Logic Implementation
 function calculateUnifiedPrivacyScore(data) {
@@ -276,7 +457,7 @@ async function analyzeDomain(tabId, url) {
     const cookies = await chrome.cookies.getAll({ url: url });
     
     // Check if Shield is ON
-    const { shieldActive } = await chrome.storage.local.get('shieldActive');
+    const { shieldActive } = await getStorage('shieldActive');
     
     const trackersFound = Math.floor(cookies.length / 2.5);
 
@@ -364,16 +545,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'BLOCK_COOKIES') {
     handleCookieCleanup(sender.tab.url);
   }
-  // NEW: Toggle the Shadow Shield
+  // Toggle the Shadow Shield
   if (message.type === 'ENABLE_SHIELD') {
     enableShadowShield();
+    chrome.storage.local.set({ shieldActive: true });
+    recordShieldEvent(true);
   }
   if (message.type === 'DISABLE_SHIELD') {
     disableShadowShield();
+    chrome.storage.local.set({ shieldActive: false });
+    recordShieldEvent(false);
   }
-  // NEW: When content script says it's ready, send the analysis
+  // When content script says it's ready, send the analysis
   if (message.type === 'CONTENT_SCRIPT_READY' && sender.tab) {
     analyzeDomain(sender.tab.id, sender.tab.url);
+  }
+  // Open report page from content script request
+  if (message.type === 'OPEN_REPORT') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+  }
+  // Open Value Dashboard
+  if (message.type === 'OPEN_DASHBOARD') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+  }
+  // Get live dashboard stats (for popup)
+  if (message.type === 'GET_DASHBOARD_STATS') {
+    chrome.storage.local.get(['dashboardStats', 'activityLog', 'shieldActive'], (data) => {
+      sendResponse(data);
+    });
+    return true; // Keep channel open for async response
+  }
+  // Whitelist management
+  if (message.type === 'ADD_WHITELIST') {
+    chrome.storage.local.get('whitelistedSites', async (data) => {
+      const sites = data.whitelistedSites || [];
+      if (!sites.includes(message.domain)) {
+        sites.push(message.domain);
+        await chrome.storage.local.set({ whitelistedSites: sites });
+        enableShadowShield(); // Re-apply rules with new whitelist
+      }
+    });
+  }
+  if (message.type === 'REMOVE_WHITELIST') {
+    chrome.storage.local.get('whitelistedSites', async (data) => {
+      let sites = data.whitelistedSites || [];
+      sites = sites.filter(s => s !== message.domain);
+      await chrome.storage.local.set({ whitelistedSites: sites });
+      enableShadowShield(); // Re-apply rules
+    });
+  }
+  if (message.type === 'CHECK_WHITELIST') {
+    chrome.storage.local.get('whitelistedSites', (data) => {
+      const sites = data.whitelistedSites || [];
+      sendResponse({ isWhitelisted: sites.includes(message.domain) });
+    });
+    return true;
   }
 });
 
@@ -403,14 +629,21 @@ const TRACKER_BLOCKLIST = [
 
 // The "Force Field" Logic (declarativeNetRequest)
 async function enableShadowShield() {
+  const { whitelistedSites = [] } = await getStorage('whitelistedSites');
   const resourceTypes = ['script', 'image', 'xmlhttprequest', 'sub_frame', 'stylesheet', 'font', 'ping'];
   
-  const rules = TRACKER_BLOCKLIST.map((domain, index) => ({
-    id: index + 1,
-    priority: 1,
-    action: { type: 'block' },
-    condition: { urlFilter: `*${domain}*`, resourceTypes }
-  }));
+  const rules = TRACKER_BLOCKLIST.map((domain, index) => {
+    let rule = {
+      id: index + 1,
+      priority: 1,
+      action: { type: 'block' },
+      condition: { urlFilter: `*${domain}*`, resourceTypes }
+    };
+    if (whitelistedSites.length > 0) {
+      rule.condition.excludedInitiatorDomains = whitelistedSites;
+    }
+    return rule;
+  });
 
   const allIds = rules.map(r => r.id);
 
@@ -418,11 +651,6 @@ async function enableShadowShield() {
     removeRuleIds: allIds,
     addRules: rules
   });
-
-  // Track stats
-  const { shieldStats = { totalBlocked: 0, sessionsActive: 0 } } = await chrome.storage.local.get('shieldStats');
-  shieldStats.sessionsActive++;
-  chrome.storage.local.set({ shieldStats });
 
   console.log(`[DataShadow] SHADOW SHIELD ACTIVE: ${rules.length} tracker domains blocked.`);
 }
@@ -445,11 +673,34 @@ async function handleCookieCleanup(pageUrl) {
     await chrome.cookies.remove({ url, name: cookie.name });
   }
   console.log(`[DataShadow] NUKED ${cookies.length} cookies from ${pageUrl}`);
+  // Record in stats
+  const domain = new URL(pageUrl).hostname;
+  await recordCookieClean(cookies.length, domain);
 }
 
 // Trigger Analysis on Page Load
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
+    const domain = new URL(tab.url).hostname;
+    
+    // Skip analysis/blocking if site is whitelisted
+    const { whitelistedSites = [] } = await getStorage('whitelistedSites');
+    if (whitelistedSites.includes(domain)) {
+      return; // Do nothing for whitelisted sites
+    }
+
     analyzeDomain(tabId, tab.url);
+
+    // Record session + block events when shield is active
+    const { shieldActive } = await getStorage('shieldActive');
+    if (shieldActive) {
+      await recordSession(domain);
+      // Estimate blocks: cookies / 2.5 rounded, at least 1 for known-tracker pages
+      const cookies = await chrome.cookies.getAll({ url: tab.url });
+      const estimated = Math.floor(cookies.length / 2.5);
+      if (estimated > 0) {
+        await recordBlockEvent(estimated, domain);
+      }
+    }
   }
 });

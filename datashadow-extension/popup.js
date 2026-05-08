@@ -46,8 +46,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
+  // Whitelist Logic
+  const whitelistBtn = document.getElementById('whitelist-toggle');
+  const domainLabel = document.getElementById('current-domain');
+  
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0] && tabs[0].url && tabs[0].url.startsWith('http')) {
+      const domain = new URL(tabs[0].url).hostname;
+      domainLabel.innerText = domain;
+      
+      chrome.runtime.sendMessage({ type: 'CHECK_WHITELIST', domain }, (response) => {
+        if (response && response.isWhitelisted) {
+          whitelistBtn.classList.add('active');
+          whitelistBtn.innerText = 'ON';
+          whitelistBtn.style.background = '#f59e0b';
+          whitelistBtn.style.color = '#fff';
+          whitelistBtn.style.boxShadow = '0 0 10px rgba(245,158,11,0.4)';
+        }
+      });
+
+      whitelistBtn.onclick = () => {
+        const isActive = whitelistBtn.classList.toggle('active');
+        if (isActive) {
+          whitelistBtn.innerText = 'ON';
+          whitelistBtn.style.background = '#f59e0b';
+          whitelistBtn.style.color = '#fff';
+          whitelistBtn.style.boxShadow = '0 0 10px rgba(245,158,11,0.4)';
+          chrome.runtime.sendMessage({ type: 'ADD_WHITELIST', domain });
+        } else {
+          whitelistBtn.innerText = 'OFF';
+          whitelistBtn.style.background = '#444';
+          whitelistBtn.style.color = '#aaa';
+          whitelistBtn.style.boxShadow = 'none';
+          chrome.runtime.sendMessage({ type: 'REMOVE_WHITELIST', domain });
+        }
+        
+        // Reload page to apply changes
+        setTimeout(() => chrome.tabs.reload(tabs[0].id), 500);
+      };
+    } else {
+      domainLabel.innerText = 'N/A';
+      whitelistBtn.disabled = true;
+      whitelistBtn.style.opacity = '0.5';
+    }
+  });
+
   // Analyze button inside DOMContentLoaded (fix!)
   document.getElementById('analyze-btn').onclick = () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+  };
+
+  // Value Dashboard button
+  document.getElementById('dashboard-btn').onclick = () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+  };
+
+  // Pro Features button
+  document.getElementById('pro-btn').onclick = () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('pro.html') });
   };
 });

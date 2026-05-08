@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to DataShadow</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #050508; color: #e2e8f0;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    body::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(255,51,51,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .container {
+      width: 100%; max-width: 600px;
+      padding: 40px; position: relative; z-index: 1;
+    }
+
+    .logo {
+      text-align: center; font-size: 32px; font-weight: 900;
+      letter-spacing: -1px; margin-bottom: 40px;
+      animation: fadeIn 0.5s ease-out;
+    }
+    .logo span.data { color: #ff3333; }
+    .logo span.shadow { color: #fff; }
+
+    .step-container {
+      position: relative; height: 320px;
+    }
+
+    .step {
+      position: absolute; inset: 0;
+      background: rgba(17, 19, 24, 0.8); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px; padding: 40px; text-align: center;
+      opacity: 0; pointer-events: none; transform: translateX(20px);
+      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+      backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center;
+    }
+    .step.active {
+      opacity: 1; pointer-events: all; transform: translateX(0);
+    }
+    .step.prev {
+      transform: translateX(-20px);
+    }
+
+    .step-icon {
+      font-size: 54px; margin-bottom: 24px;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .step h2 { font-size: 24px; font-weight: 800; margin-bottom: 12px; color: #fff; }
+    .step p { font-size: 15px; color: #94a3b8; line-height: 1.6; }
+
+    .controls {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 40px; animation: fadeIn 0.5s ease-out 0.2s both;
+    }
+
+    .dots { display: flex; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
+    .dot.active { background: #ff3333; width: 24px; border-radius: 4px; }
+
+    .btn {
+      padding: 12px 28px; border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: all 0.2s;
+    }
+    .btn-next { background: #fff; color: #000; }
+    .btn-next:hover { background: #e2e8f0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.2); }
+    
+    .btn-start {
+      background: linear-gradient(135deg, #ff3333, #cc2200); color: #fff; display: none;
+    }
+    .btn-start:hover { box-shadow: 0 8px 24px rgba(255,51,51,0.3); transform: translateY(-1px); }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo"><span class="data">Data</span><span class="shadow">Shadow</span></div>
+    
+    <div class="step-container">
+      <div class="step active" id="step-1">
+        <div class="step-icon">👀</div>
+        <h2>Scan Your First Site</h2>
+        <p>DataShadow automatically analyzes every website you visit. Click the extension icon in your toolbar to see exactly who is tracking your behavior and what data they are collecting.</p>
+      </div>
+      
+      <div class="step" id="step-2">
+        <div class="step-icon">🛡️</div>
+        <h2>Enable The Shield</h2>
+        <p>Toggle the <strong>Shadow Shield</strong> ON to block invasive trackers, scripts, and data brokers. It works silently in the background so you can browse without leaving a footprint.</p>
+      </div>
+
+      <div class="step" id="step-3">
+        <div class="step-icon">📊</div>
+        <h2>Check Your Risk</h2>
+        <p>Open the <strong>Value Dashboard</strong> to see a visual map of where your data was heading, and track exactly how many trackers you've blocked over time.</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="dots">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+      <button class="btn btn-next" id="btn-next">Next</button>
+      <button class="btn btn-start" id="btn-start">Let's Go!</button>
+    </div>
+  </div>
+
+  <script src="onboard.js"></script>
+</body>
+</html>
