@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .container {
+      padding: 40px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #333;
+      border-top: 4px solid #ff3333;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 { color: #ff3333; }
+    p { color: #888; }
+    .success { color: #00ff88; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner" id="spinner"></div>
+    <h2>DataShadow</h2>
+    <p id="status">Signing you in...</p>
+  </div>
+  <script>
+    // This page is loaded after Google OAuth redirects back
+    // The access token is in the URL hash fragment
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const statusEl = document.getElementById('status');
+    const spinnerEl = document.getElementById('spinner');
+
+    if (accessToken) {
+      statusEl.textContent = 'Login successful! ✅ You can close this tab.';
+      statusEl.className = 'success';
+      spinnerEl.style.display = 'none';
+      
+      // Store the token — the popup will pick it up
+      const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
+
+      fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY }
+      })
+      .then(res => res.json())
+      .then(user => {
+        chrome.storage.local.set({ supabaseToken: accessToken, supabaseUser: user }, () => {
+          statusEl.textContent = `Welcome, ${user.email}! ✅ This tab will close automatically.`;
+          setTimeout(() => window.close(), 2000);
+        });
+      })
+      .catch(err => {
+        statusEl.textContent = 'Error: ' + err.message;
+      });
+    } else {
+      statusEl.textContent = 'Login failed. Please try again from the extension popup.';
+      spinnerEl.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

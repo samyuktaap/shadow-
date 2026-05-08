@@ -1,5 +1,38 @@
 // DataShadow Background Service Worker — Stats Engine + Shield
 
+// ── Auth: Catch Google OAuth redirect tokens ────────────────────────────────
+const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
+
+// Listen for ALL tab URL changes — catch the localhost redirect with tokens
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
+  if (!changeInfo.url || !changeInfo.url.startsWith('http://localhost')) return;
+  if (!changeInfo.url.includes('access_token')) return;
+
+  console.log('[DataShadow Auth] Caught OAuth redirect!');
+  const hashStr = changeInfo.url.split('#')[1] || '';
+  const params = new URLSearchParams(hashStr);
+  const accessToken = params.get('access_token');
+
+  if (accessToken) {
+    try {
+      // Fetch user info from Supabase
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY }
+      });
+      const user = await res.json();
+      await chrome.storage.local.set({ supabaseToken: accessToken, supabaseUser: user });
+      console.log('[DataShadow Auth] ✅ Logged in as:', user.email);
+
+      // Close the localhost tab and open dashboard
+      chrome.tabs.remove(tabId);
+      chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/dashboard.html') });
+    } catch (err) {
+      console.error('[DataShadow Auth] Error:', err);
+    }
+  }
+});
+
 // AUTO-RESTORE: Re-enable shield on browser start if it was ON
 chrome.runtime.onStartup.addListener(async () => {
   const { shieldActive } = await getStorage('shieldActive');

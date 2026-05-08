@@ -1,4 +1,12 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Security Gate: Redirect if not logged in
+  const authData = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+  if (!authData.supabaseUser || !authData.supabaseToken) {
+    alert('Please sign in with Google to view your Privacy Report.');
+    window.close();
+    return;
+  }
+
   // Load data from chrome storage
   chrome.storage.local.get(['lastAnalysis', 'shieldActive'], (data) => {
     if (data.lastAnalysis) {

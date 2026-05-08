@@ -12,10 +12,6 @@
     "declarativeNetRequest",
     "identity"
   ],
-  "oauth2": {
-    "client_id": "605149597240-evauu46jjo7s802tbnaphnpvenoklqml.apps.googleusercontent.com",
-    "scopes": ["openid", "email", "profile"]
-  },
   "host_permissions": [
     "<all_urls>"
   ],
@@ -42,7 +38,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/pages/report.html", "src/pages/dashboard.html", "src/pages/pro.html", "public/world-map.svg"],
+      "resources": ["src/pages/report.html", "src/pages/dashboard.html", "src/pages/pro.html", "src/pages/auth-callback.html", "public/world-map.svg"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -1,23 +1,109 @@
 // DataShadow Popup Logic (Person 1)
+// Auth — inline, no npm import needed
+const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
+
+async function loginWithGoogle() {
+  // Just open the auth tab — background.js catches the token and redirects to dashboard
+  const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=http://localhost:3000&prompt=select_account`;
+  chrome.tabs.create({ url: authUrl });
+}
+
+async function getCurrentUser() {
+  const data = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+  return (data.supabaseToken && data.supabaseUser) ? data.supabaseUser : null;
+}
+
+async function logout() {
+  await chrome.storage.local.remove(['supabaseToken', 'supabaseRefreshToken', 'supabaseUser']);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Auth State Management
+  const userInfo = document.getElementById('user-info');
+  const userEmail = document.getElementById('user-email');
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  async function updateAuthUI() {
+    try {
+      const user = await getCurrentUser();
+      const premiumButtons = [
+        document.getElementById('analyze-btn'),
+        document.getElementById('dashboard-btn'),
+        document.getElementById('pro-btn')
+      ];
+
+      if (user) {
+        userInfo.style.display = 'block';
+        userEmail.innerText = user.email;
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'block';
+        
+        // Enable premium features
+        premiumButtons.forEach(btn => {
+          if (btn) {
+            btn.style.opacity = '1';
+            btn.style.pointerEvents = 'auto';
+            btn.title = '';
+          }
+        });
+      } else {
+        userInfo.style.display = 'none';
+        loginBtn.style.display = 'block';
+        logoutBtn.style.display = 'none';
+
+        // Disable premium features
+        premiumButtons.forEach(btn => {
+          if (btn) {
+            btn.style.opacity = '0.5';
+            btn.style.pointerEvents = 'none';
+            btn.title = 'Please sign in to access this feature';
+          }
+        });
+      }
+    } catch (e) {
+      console.error('[Auth] Error getting user:', e);
+    }
+  }
+
+  // Initialize UI
+  updateAuthUI();
+
+  loginBtn.onclick = () => {
+    // Just open Google login in a new tab.
+    // background.js catches the token and opens dashboard AFTER login completes.
+    loginWithGoogle();
+    loginBtn.innerText = 'Check the new tab ↗';
+    loginBtn.disabled = true;
+  };
+
+  logoutBtn.onclick = async () => {
+    logoutBtn.innerText = 'Logging out...';
+    try {
+      await logout();
+      await updateAuthUI();
+      logoutBtn.innerText = 'Log out';
+    } catch (e) {
+      console.error('Logout failed:', e);
+    }
+  };
+
   const scoreElement = document.getElementById('score');
 
   // Sync the popup score with the EXACT background analysis
   const { lastAnalysis } = await chrome.storage.local.get('lastAnalysis');
   
   if (lastAnalysis) {
-    // Fallback calculation just in case the stored data is from an older version
     let score = lastAnalysis.score !== undefined 
       ? lastAnalysis.score 
       : Math.min(lastAnalysis.cookieCount * 5, 100);
     
     scoreElement.innerText = score;
     
-    // Color coding based on risk
-    if (score > 70) scoreElement.style.color = '#ff3333'; // High
-    else if (score > 30) scoreElement.style.color = '#ffaa00'; // Medium
-    else scoreElement.style.color = '#00ff88'; // Low
+    if (score > 70) scoreElement.style.color = '#ff3333';
+    else if (score > 30) scoreElement.style.color = '#ffaa00';
+    else scoreElement.style.color = '#00ff88';
   } else {
     scoreElement.innerText = '--';
     scoreElement.style.color = '#555';
@@ -26,7 +112,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Shadow Shield Toggle Logic
   const shieldBtn = document.getElementById('shield-toggle');
   
-  // Check current state from storage
   const { shieldActive } = await chrome.storage.local.get('shieldActive');
   if (shieldActive) {
     shieldBtn.classList.add('active');
@@ -37,7 +122,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const active = shieldBtn.classList.toggle('active');
     shieldBtn.innerText = active ? 'ON' : 'OFF';
     
-    // Save state and notify background
     await chrome.storage.local.set({ shieldActive: active });
     if (active) {
       chrome.runtime.sendMessage({ type: 'ENABLE_SHIELD' });
@@ -81,7 +165,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           chrome.runtime.sendMessage({ type: 'REMOVE_WHITELIST', domain });
         }
         
-        // Reload page to apply changes
         setTimeout(() => chrome.tabs.reload(tabs[0].id), 500);
       };
     } else {
@@ -91,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Analyze button inside DOMContentLoaded (fix!)
+  // Analyze button
   document.getElementById('analyze-btn').onclick = () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
   };

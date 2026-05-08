@@ -1,91 +1,77 @@
-import { supabase } from './supabase.js';
+// DataShadow Auth — Pure JS, no npm dependencies needed
+// Uses Supabase REST API + chrome.identity directly
 
-/**
- * Handles the Google OAuth flow using Chrome's identity API
- * and signs the user into Supabase using the received ID token.
- */
+const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
+
 export async function loginWithGoogle() {
+  // This URL is stable for this extension (based on extension ID)
+  const redirectUrl = chrome.identity.getRedirectURL();
+  const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+
   return new Promise((resolve, reject) => {
-    // 1. Launch Web Auth Flow using Chrome Identity
-    chrome.identity.getAuthToken({ interactive: true }, async function(token) {
+    chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (redirectedTo) => {
       if (chrome.runtime.lastError) {
-        console.error('[DataShadow Auth] Auth error:', chrome.runtime.lastError.message);
-        return reject(chrome.runtime.lastError);
+        return reject(new Error(chrome.runtime.lastError.message));
+      }
+      if (!redirectedTo) {
+        return reject(new Error('No redirect URL received'));
       }
 
       try {
-        // 2. We need the ID token to sign in to Supabase.
-        // We fetch the user's info using the access token to get their email/id.
-        // But for Supabase, we ideally need the ID token.
-        // Let's use Supabase's signInWithIdToken by fetching the user's details first.
-        
-        // Fetch user info from Google
-        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${token}` }
+        // Supabase returns tokens in the URL hash: #access_token=...&refresh_token=...
+        const hashStr = redirectedTo.includes('#') ? redirectedTo.split('#')[1] : redirectedTo.split('?')[1];
+        const params = new URLSearchParams(hashStr);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (!accessToken) throw new Error('No access token in redirect');
+
+        // Fetch user details from Supabase using the access token
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': SUPABASE_ANON_KEY
+          }
         });
-        const userData = await response.json();
+        const user = await res.json();
 
-        // Check if there is an existing session in local storage
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-            // Since we can't easily extract the ID token via getAuthToken directly in MV3 without a custom flow,
-            // we will use the access token to sign up/in using a custom mechanism if needed, 
-            // OR use the launchWebAuthFlow pointing to Supabase directly.
+        // Save session to chrome.storage
+        await chrome.storage.local.set({
+          supabaseToken: accessToken,
+          supabaseRefreshToken: refreshToken,
+          supabaseUser: user
+        });
 
-            // The better way in MV3 is often to let Supabase handle the OAuth flow via chrome.identity.launchWebAuthFlow
-            const authUrl = `${supabase.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${chrome.identity.getRedirectURL()}`;
-            
-            chrome.identity.launchWebAuthFlow({
-              url: authUrl,
-              interactive: true
-            }, async (redirectUrl) => {
-              if (chrome.runtime.lastError || !redirectUrl) {
-                return reject(chrome.runtime.lastError);
-              }
-
-              // Extract access token and refresh token from the redirect URL hash
-              const url = new URL(redirectUrl.replace('#', '?'));
-              const accessToken = url.searchParams.get('access_token');
-              const refreshToken = url.searchParams.get('refresh_token');
-
-              if (accessToken && refreshToken) {
-                const { data, error } = await supabase.auth.setSession({
-                  access_token: accessToken,
-                  refresh_token: refreshToken
-                });
-                
-                if (error) throw error;
-                resolve(data.user);
-              } else {
-                reject(new Error('No tokens in redirect URL'));
-              }
-            });
-        } else {
-            resolve(session.user);
-        }
-      } catch (error) {
-        console.error('[DataShadow Auth] Supabase sign-in error:', error);
-        reject(error);
+        resolve(user);
+      } catch (err) {
+        reject(err);
       }
     });
   });
 }
 
-/**
- * Gets the currently logged-in user from Supabase.
- */
 export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
+  const data = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+  if (!data.supabaseToken || !data.supabaseUser) return null;
+  return data.supabaseUser;
 }
 
-/**
- * Logs the user out.
- */
 export async function logout() {
-  await supabase.auth.signOut();
-  return new Promise((resolve) => {
-    chrome.identity.clearAllCachedAuthTokens(() => resolve());
+  await chrome.storage.local.remove(['supabaseToken', 'supabaseRefreshToken', 'supabaseUser']);
+}
+
+// Helper: make authenticated requests to Supabase REST API
+export async function supabaseFetch(path, options = {}) {
+  const { supabaseToken } = await chrome.storage.local.get('supabaseToken');
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${supabaseToken || SUPABASE_ANON_KEY}`,
+      'Prefer': 'return=representation',
+      ...(options.headers || {})
+    }
   });
 }

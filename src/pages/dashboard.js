@@ -1,6 +1,14 @@
 // DataShadow Value Dashboard — Enhanced Logic
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Security Gate: Redirect if not logged in
+  const data = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+  if (!data.supabaseUser || !data.supabaseToken) {
+    alert('Please sign in with Google to view your Privacy Dashboard.');
+    window.close(); // Close the tab if it's a new tab, or just stop execution
+    return;
+  }
+
   loadDashboardData();
   renderPrivacyMap();
   renderPrivacyTip();

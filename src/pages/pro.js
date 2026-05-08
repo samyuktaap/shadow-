@@ -1,6 +1,14 @@
 // DataShadow Pro Features Logic
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Security Gate: Redirect if not logged in
+  const authData = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+  if (!authData.supabaseUser || !authData.supabaseToken) {
+    alert('Please sign in with Google to access Pro Features.');
+    window.close();
+    return;
+  }
+
   initBreachMonitor();
   initDataBrokerRemoval();
   initEmailMasking();
