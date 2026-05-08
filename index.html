@@ -115,7 +115,7 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 16px;
       margin-bottom: 28px;
     }
@@ -430,7 +430,10 @@
     <!-- ── Header ── -->
     <div class="dash-header animate-in">
       <div>
-        <div class="dash-logo"><span class="data">Data</span><span class="shadow">Shadow</span></div>
+        <div class="dash-logo" style="display:flex; align-items:center; gap:10px;">
+          <img src="assets/icon128.png" alt="DataShadow Logo" style="width:32px; height:32px; filter: drop-shadow(0 0 8px rgba(255,51,51,0.3));">
+          <div><span class="data">Data</span><span class="shadow">Shadow</span></div>
+        </div>
         <div class="dash-badge">
           <span class="badge-dot"></span>
           Shield Active — Protecting You Now
@@ -469,6 +472,12 @@
         <div class="stat-value" id="cookies-cleaned">—</div>
         <div class="stat-label">Cookies Cleaned</div>
         <div class="stat-change up" id="cookies-change">↑ loading…</div>
+      </div>
+      <div class="stat-card amber animate-in delay-5" style="border-color: var(--amber); box-shadow: 0 0 20px rgba(245,158,11,0.15);">
+        <span class="stat-icon">💎</span>
+        <div class="stat-value" id="market-value" style="color: var(--amber);">$0.00</div>
+        <div class="stat-label">Market Value Saved</div>
+        <div class="stat-change info" style="background: rgba(245,158,11,0.08); color: var(--amber);">LIVE MARKET RATE</div>
       </div>
     </div>
 

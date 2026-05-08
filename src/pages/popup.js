@@ -188,4 +188,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('pro-btn').onclick = () => {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/pro.html') });
   };
+
+  // ☢️ PRIVACY NUKE Logic
+  const nukeBtn = document.getElementById('nuke-btn');
+  if (nukeBtn) {
+    nukeBtn.onclick = async () => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0] && tabs[0].url) {
+        nukeBtn.innerText = "☣️ DETONATING...";
+        nukeBtn.style.background = "#ff0000";
+        
+        chrome.runtime.sendMessage({ 
+          type: 'DETONATE_NUKE', 
+          url: tabs[0].url 
+        }, (response) => {
+          if (response && response.success) {
+            setTimeout(() => {
+              nukeBtn.innerText = "✅ NUKE COMPLETE";
+              chrome.tabs.reload(tabs[0].id);
+            }, 800);
+            setTimeout(() => {
+              nukeBtn.innerText = "☢️ Detonate Privacy Nuke";
+              nukeBtn.style.background = "";
+            }, 3000);
+          }
+        });
+      }
+    };
+  }
+
+  // Sync Market Value display
+  const valueDisplay = document.getElementById('market-value-popup');
+  if (valueDisplay) {
+    if (lastAnalysis && lastAnalysis.marketValue !== undefined) {
+      valueDisplay.innerText = `$${lastAnalysis.marketValue}`;
+    } else {
+      // Fallback calculation for popup
+      const val = (lastAnalysis ? (lastAnalysis.trackersFound * 0.12 + lastAnalysis.cookieCount * 0.05) : 0);
+      valueDisplay.innerText = `$${val.toFixed(2)}`;
+    }
+  }
 });

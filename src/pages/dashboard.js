@@ -16,15 +16,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Nav links
   const openReport = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
+    console.log("[DataShadow] Attempting to open report...");
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
+    } else {
+      // Fallback for local testing (not in extension context)
+      window.open('src/pages/report.html', '_blank');
+    }
   };
-  document.getElementById('nav-report').onclick = openReport;
-  document.getElementById('nav-report-cta').onclick = openReport;
 
-  document.getElementById('nav-pro').onclick = (e) => {
-    e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/pro.html') });
-  };
+  const dashboardNav = document.getElementById('nav-dashboard');
+  const reportNav = document.getElementById('nav-report');
+  const reportCta = document.getElementById('nav-report-cta');
+  const proNav = document.getElementById('nav-pro');
+
+  if (dashboardNav) dashboardNav.onclick = (e) => e.preventDefault();
+  if (reportNav) reportNav.onclick = openReport;
+  if (reportCta) reportCta.onclick = openReport;
+
+  if (proNav) {
+    proNav.onclick = (e) => {
+      e.preventDefault();
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/pro.html') });
+      } else {
+        window.open('src/pages/pro.html', '_blank');
+      }
+    };
+  }
 });
 
 // ── Tracker Location Database ──
@@ -116,6 +135,10 @@ function loadDashboardData() {
     renderDataBreakdown(stats);
     renderShieldPerformance(stats, data.shieldActive);
     renderActivityLog(data.activityLog || []);
+
+    // Market Value Animation
+    const marketValue = stats.totalBlocked * 0.12 + stats.cookiesCleaned * 0.05;
+    animateCounterFloat('market-value', marketValue, '$', true);
   });
 }
 
@@ -132,15 +155,17 @@ function animateCounter(id, target) {
   })(start);
 }
 
-function animateCounterFloat(id, target, suffix) {
+function animateCounterFloat(id, target, suffixOrPrefix, isPrefix = false) {
   const el = document.getElementById(id);
   if (!el) return;
   const dur = 1400, start = performance.now();
-  const decimals = String(target).includes('.') ? 1 : 0;
+  // Adjust decimals: 2 for market value, 1 for MB/KB
+  const decimals = id === 'market-value' ? 2 : (target % 1 === 0 ? 0 : 1);
   (function tick(now) {
     const p = Math.min((now - start) / dur, 1);
     const e = 1 - Math.pow(1 - p, 3);
-    el.textContent = (e * target).toFixed(decimals) + suffix;
+    const val = (e * target).toFixed(decimals);
+    el.textContent = isPrefix ? suffixOrPrefix + val : val + suffixOrPrefix;
     if (p < 1) requestAnimationFrame(tick);
   })(start);
 }
@@ -270,9 +295,20 @@ function renderPrivacyMap() {
     const arc = document.createElementNS(ns, 'path');
     arc.setAttribute('d', `M${userPos.x},${userPos.y} Q${mid.x},${mid.y} ${p.x},${p.y}`);
     arc.setAttribute('stroke', color);
-    arc.setAttribute('stroke-width', '0.6');
+    arc.setAttribute('stroke-width', '0.8');
     arc.setAttribute('fill', 'none');
-    arc.setAttribute('stroke-dasharray', '4,4');
+    arc.setAttribute('stroke-dasharray', '10,10');
+    arc.style.filter = `drop-shadow(0 0 5px ${color})`;
+    
+    // Add pulsing dash animation
+    const animate = document.createElementNS(ns, 'animate');
+    animate.setAttribute('attributeName', 'stroke-dashoffset');
+    animate.setAttribute('from', '100');
+    animate.setAttribute('to', '0');
+    animate.setAttribute('dur', (Math.random() * 2 + 2) + 's');
+    animate.setAttribute('repeatCount', 'indefinite');
+    arc.appendChild(animate);
+    
     arcs.appendChild(arc);
   });
   svg.appendChild(arcs);

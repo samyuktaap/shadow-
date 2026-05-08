@@ -63,12 +63,51 @@
       cursor: pointer;
       font-weight: bold;
     }
+    .nuke-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #ff3333, #880000);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(255, 51, 51, 0.4);
+      transition: 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .nuke-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 20px rgba(255, 51, 51, 0.6);
+      filter: brightness(1.2);
+    }
+    .value-saved-container {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 11px;
+      color: #888;
+      background: rgba(255,255,255,0.03);
+      padding: 6px;
+      border-radius: 8px;
+    }
+    .value-saved-container span {
+      color: #facc15;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <div class="header">
+  <div class="header" style="display:flex; align-items:center; gap:8px;">
+    <img src="assets/icon128.png" alt="Logo" style="width:24px; height:24px;">
     <div class="logo">DataShadow</div>
-    <div class="version">v1.0</div>
+    <div class="version" style="margin-left:auto">v1.0</div>
   </div>
   <div class="status-card">
     <div class="score" id="score">--</div>
@@ -78,6 +117,14 @@
   <div class="shield-box">
     <span>Shadow Shield</span>
     <button class="toggle-btn" id="shield-toggle">OFF</button>
+  </div>
+
+  <button class="nuke-btn" id="nuke-btn">
+    ☢️ Detonate Privacy Nuke
+  </button>
+
+  <div class="value-saved-container">
+    💰 Data Market Value Saved: <span id="market-value-popup">$0.00</span>
   </div>
 
   <div class="shield-box" style="margin-top:10px; padding: 10px 15px; border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.02);">
