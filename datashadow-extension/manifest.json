@@ -15,29 +15,29 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/scripts/background.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["fingerprinter-shield.js"],
+      "js": ["src/scripts/fingerprinter-shield.js"],
       "run_at": "document_start",
       "all_frames": true
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["src/scripts/content.js"]
     }
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "src/pages/popup.html"
   },
   "icons": {
     "128": "assets/icon128.png"
   },
   "web_accessible_resources": [
     {
-      "resources": ["report.html", "dashboard.html", "pro.html", "world-map.svg"],
+      "resources": ["src/pages/report.html", "src/pages/dashboard.html", "src/pages/pro.html", "assets/world-map.svg"],
       "matches": ["<all_urls>"]
     }
   ]

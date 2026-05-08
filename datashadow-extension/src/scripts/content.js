@@ -150,21 +150,21 @@ function showProtectedBadge() {
 
   shadow.getElementById('ds-report').onclick = () => {
     const a = document.createElement('a');
-    a.href = chrome.runtime.getURL('report.html');
+    a.href = chrome.runtime.getURL('src/pages/report.html');
     a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
     document.body.appendChild(a); a.click(); a.remove();
   };
 
   shadow.getElementById('ds-dash').onclick = () => {
     const a = document.createElement('a');
-    a.href = chrome.runtime.getURL('dashboard.html');
+    a.href = chrome.runtime.getURL('src/pages/dashboard.html');
     a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
     document.body.appendChild(a); a.click(); a.remove();
   };
 
   shadow.getElementById('ds-pro').onclick = () => {
     const a = document.createElement('a');
-    a.href = chrome.runtime.getURL('pro.html');
+    a.href = chrome.runtime.getURL('src/pages/pro.html');
     a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
     document.body.appendChild(a); a.click(); a.remove();
   };
@@ -418,7 +418,7 @@ function showDynamicAlert(count, fields, names, domain, classification) {
   };
 
   shadow.getElementById('nav-ds').onclick = () => {
-    const reportUrl = chrome.runtime.getURL('report.html');
+    const reportUrl = chrome.runtime.getURL('src/pages/report.html');
     const a = document.createElement('a');
     a.href = reportUrl;
     a.target = '_blank';
@@ -431,7 +431,7 @@ function showDynamicAlert(count, fields, names, domain, classification) {
 
   // Value Dashboard button
   shadow.getElementById('dash-ds').onclick = () => {
-    const dashUrl = chrome.runtime.getURL('dashboard.html');
+    const dashUrl = chrome.runtime.getURL('src/pages/dashboard.html');
     const a = document.createElement('a');
     a.href = dashUrl;
     a.target = '_blank';
@@ -444,7 +444,7 @@ function showDynamicAlert(count, fields, names, domain, classification) {
 
   // Pro Features button
   shadow.getElementById('pro-ds').onclick = () => {
-    const proUrl = chrome.runtime.getURL('pro.html');
+    const proUrl = chrome.runtime.getURL('src/pages/pro.html');
     const a = document.createElement('a');
     a.href = proUrl;
     a.target = '_blank';

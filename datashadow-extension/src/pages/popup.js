@@ -93,16 +93,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Analyze button inside DOMContentLoaded (fix!)
   document.getElementById('analyze-btn').onclick = () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
   };
 
   // Value Dashboard button
   document.getElementById('dashboard-btn').onclick = () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/dashboard.html') });
   };
 
   // Pro Features button
   document.getElementById('pro-btn').onclick = () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('pro.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/pro.html') });
   };
 });

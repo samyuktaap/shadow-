@@ -8,14 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Nav links
   const openReport = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
   };
   document.getElementById('nav-report').onclick = openReport;
   document.getElementById('nav-report-cta').onclick = openReport;
 
   document.getElementById('nav-pro').onclick = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('pro.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/pro.html') });
   };
 });
 
@@ -219,7 +219,7 @@ function renderPrivacyMap() {
   const land = document.createElementNS(ns, 'g');
 
   // Load highly realistic SVG map dynamically
-  fetch(chrome.runtime.getURL('world-map.svg'))
+  fetch(chrome.runtime.getURL('assets/world-map.svg'))
     .then(r => r.text())
     .then(text => {
       const parser = new DOMParser();

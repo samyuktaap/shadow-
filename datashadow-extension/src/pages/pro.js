@@ -8,11 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Navigation
   document.getElementById('nav-dash').onclick = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/dashboard.html') });
   };
   document.getElementById('nav-report').onclick = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
   };
 });
 

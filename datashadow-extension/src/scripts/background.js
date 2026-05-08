@@ -21,7 +21,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
   // Show onboarding on fresh install
   if (details.reason === 'install') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('onboard.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/onboard.html') });
   }
 });
 
@@ -562,11 +562,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   // Open report page from content script request
   if (message.type === 'OPEN_REPORT') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('report.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
   }
   // Open Value Dashboard
   if (message.type === 'OPEN_DASHBOARD') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('dashboard.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/dashboard.html') });
   }
   // Get live dashboard stats (for popup)
   if (message.type === 'GET_DASHBOARD_STATS') {
