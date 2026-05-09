@@ -130,12 +130,12 @@ function initBreachMonitor() {
     });
 
     html += `</div>
-      <div style="margin-top:16px;padding:14px 18px;background:rgba(255,51,51,0.05);border:1px solid rgba(255,51,51,0.1);border-radius:10px;font-size:12px;color:#94a3b8;line-height:1.6">
-        <strong style="color:#ff6666">🔒 Recommended Actions:</strong><br>
-        1. Change passwords for affected services immediately<br>
-        2. Enable Two-Factor Authentication (2FA) everywhere<br>
-        3. Use the <strong style="color:#38bdf8">Email Masking</strong> feature below to protect your real email<br>
-        4. Send <strong style="color:#f59e0b">Data Deletion Requests</strong> to brokers selling your info
+      <div style="margin-top:16px;padding:14px 18px;background:rgba(255,51,51,0.05);border:1px solid rgba(255,51,51,0.1);border-radius:10px;font-size:12px;color:var(--sub);line-height:1.6">
+        <strong style="color:var(--red)">🔒 PROTOCOL COUNTERMEASURES:</strong><br>
+        1. Terminate compromised credentials and reset security keys<br>
+        2. Activate hardware-level Two-Factor Authentication (2FA)<br>
+        3. Deploy <strong style="color:var(--orange)">Ghost Aliases</strong> to neutralize future exposure<br>
+        4. Initiate <strong style="color:var(--orange)">Eraser Protocol</strong> against identified brokers
       </div>
     `;
 
@@ -220,7 +220,7 @@ async function initDataBrokerRemoval() {
     activeSiteDomain = data.lastAnalysis.domain;
   } else {
     const tabs = await chrome.tabs.query({ currentWindow: true });
-    const targetTab = allTabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
+    const targetTab = tabs.find(t => t.url && !t.url.startsWith('chrome-extension://'));
     if (targetTab) activeSiteDomain = new URL(targetTab.url).hostname;
     else activeSiteDomain = "Unknown Site";
   }
@@ -272,10 +272,10 @@ function renderExposureIndicator(count) {
   if (existing) existing.remove();
 
   const statusEl = document.getElementById('broker-status');
-  let level = "Low";
-  let color = "var(--green)";
-  if (count > 10) { level = "High"; color = "var(--red)"; }
-  else if (count > 0) { level = "Medium"; color = "var(--amber)"; }
+  let level = "LOW";
+  let color = "var(--orange)";
+  if (count > 10) { level = "CRITICAL"; color = "var(--red)"; }
+  else if (count > 0) { level = "MODERATE"; color = "var(--orange)"; }
 
   const indicator = document.createElement('div');
   indicator.id = 'exposure-indicator';
@@ -299,8 +299,8 @@ function renderBrokers(grid, sent) {
         <div class="broker-logo">${b.icon}</div>
         <div style="flex:1;min-width:0">
           <div class="broker-name">${b.name}</div>
-          <div class="broker-type">${b.type} · <span style="color:${b.risk === 'High' ? 'var(--red)' : 'var(--amber)'}">${b.risk} Risk</span></div>
-          <div class="broker-data">📋 ${b.data}</div>
+          <div class="broker-type">${b.type} · <span style="color:${b.risk === 'High' ? 'var(--red)' : 'var(--orange)'}">${b.risk} THREAT</span></div>
+          <div class="broker-data">📋 DATA VECTORS: ${b.data}</div>
         </div>
         <div class="broker-actions">
           <button class="btn-optout ${isSent ? 'sent' : 'primary'}" data-idx="${i}" data-action="request">
@@ -332,7 +332,7 @@ async function sendDeletionRequest(broker, btn, idx) {
 
   btn.classList.remove('primary');
   btn.classList.add('sent');
-  btn.innerHTML = '✅ Sent';
+  btn.innerHTML = 'NEUTRALIZED';
 
   // Save to storage (Per-Site History)
   chrome.storage.local.get('brokerDeletions', (data) => {
@@ -405,8 +405,8 @@ function initEmailMasking() {
     
     // Typewriter effect
     aliasText.textContent = "";
-    aliasText.style.color = 'var(--blue)';
-    aliasText.style.textShadow = '0 0 10px rgba(56,189,248,0.4)';
+    aliasText.style.color = 'var(--orange)';
+    aliasText.style.textShadow = '0 0 10px var(--orange-glow)';
     
     for (let char of alias) {
       aliasText.textContent += char;
@@ -453,18 +453,19 @@ function renderAliases(aliases, container) {
   }
 
   container.innerHTML = aliases.map((a, i) => `
-    <div class="alias-item" style="border-left: 2px solid var(--blue); padding: 14px 20px;">
+    <div class="item-row" style="border-left: 3px solid var(--orange);">
+      <div class="item-icon">🎭</div>
       <div style="flex: 1">
-        <div class="alias-item-email" style="font-size: 14px; margin-bottom: 2px;">${a.email}</div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <span style="font-size: 9px; background: rgba(0,255,136,0.1); color: var(--green); padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">● LIVE FORWARDING</span>
-          <span style="font-size: 9px; color: var(--sub);">Forwarding to secure inbox</span>
-          <span class="alias-item-created" style="font-size: 9px; margin-left: auto;">${timeAgo(a.created)}</span>
+        <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: 800; color: var(--orange);">${a.email}</div>
+        <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+          <span style="font-size: 10px; color: var(--orange); font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">Ghost Relay Active</span>
+          <span style="font-size: 10px; color: var(--sub); font-weight: 600;">Tunneling to secure inbox</span>
+          <span style="font-size: 10px; color: var(--muted); margin-left: auto; font-weight: 700;">${timeAgo(a.created)}</span>
         </div>
       </div>
-      <div class="alias-item-actions" style="display: flex; gap: 6px;">
-        <button data-idx="${i}" class="alias-copy-btn" style="background: rgba(56,189,248,0.1); color: var(--blue); border: none; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer;">📋 Copy</button>
-        <button data-idx="${i}" class="alias-del-btn" style="background: rgba(255,255,255,0.03); border: none; color: var(--sub); padding: 6px; border-radius: 6px; cursor: pointer;">🗑️</button>
+      <div style="display: flex; gap: 8px;">
+        <button data-idx="${i}" class="copy-btn alias-copy-btn">COPY</button>
+        <button data-idx="${i}" class="alias-del-btn" style="background: rgba(255,51,51,0.1); border: 1px solid rgba(255,51,51,0.2); color: var(--red); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 14px;">🗑️</button>
       </div>
     </div>
   `).join('');
