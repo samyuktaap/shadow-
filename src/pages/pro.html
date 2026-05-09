@@ -212,9 +212,19 @@
     .alias-item-label { font-size: 10px; color: var(--sub); }
     .alias-item-created { font-size: 10px; color: var(--muted); }
     .alias-item-actions button {
-      background: rgba(255,51,51,0.1); border: none; color: var(--red);
-      padding: 4px 10px; border-radius: 6px; cursor: pointer;
-      font-size: 10px; font-weight: 700; font-family: inherit;
+      transition: all 0.2s;
+    }
+    .alias-item-actions button:hover {
+      transform: scale(1.05);
+      background: rgba(56,189,248,0.2) !important;
+    }
+    .alias-output {
+      transition: all 0.3s;
+      box-shadow: inset 0 0 15px rgba(56,189,248,0.05);
+    }
+    .alias-output:hover {
+      border-color: var(--blue);
+      box-shadow: 0 0 20px rgba(56,189,248,0.15);
     }
 
     .mask-info {

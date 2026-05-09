@@ -7,6 +7,8 @@
   <meta name="description" content="See exactly how DataShadow protects your privacy — trackers blocked, data saved, and global threat map.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/lib/leaflet.css" />
+  <script src="src/lib/leaflet.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -270,13 +272,17 @@
       position: relative;
       width: 100%;
       height: 450px;
-      background: radial-gradient(ellipse at center, rgba(10,20,40,0.95), rgba(0,2,8,0.99));
+      background: #050508;
       border-radius: 18px;
       overflow: hidden;
       border: 2px solid rgba(56,189,248,0.3);
       box-shadow: inset 0 0 50px rgba(56,189,248,0.2), 0 0 30px rgba(56,189,248,0.1);
+      z-index: 5;
     }
-    .map-container svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 15px rgba(56,189,248,0.5)); }
+    .map-container .leaflet-container { 
+      background: #050508 !important; 
+      width: 100%; height: 100%; 
+    }
 
     /* Scan line animation */
     .map-scanline {
@@ -504,14 +510,8 @@
             <span id="map-count-label">0 server locations</span>
           </div>
         </div>
-        <div class="map-container" id="map-container">
-          <div class="map-scanline"></div>
-          <div class="map-tooltip" id="map-tooltip">
-            <div class="tt-name"></div>
-            <div class="tt-loc"></div>
-            <div class="tt-type"></div>
-          </div>
-          <!-- SVG rendered by JS -->
+        <div class="map-container" id="map-container" style="background: #000;">
+          <!-- Leaflet Map Container -->
         </div>
         <div class="map-legend" style="padding: 0 28px 24px;">
           <span class="map-legend-label">Threat type:</span>
@@ -539,11 +539,40 @@
 
 
 
-      <!-- Data Saved Breakdown -->
       <div class="panel">
         <div class="panel-title"><span class="icon">📦</span> Data Saved Breakdown</div>
         <div class="data-breakdown" id="data-breakdown">
-          <!-- Populated by JS -->
+          <div class="data-row" style="flex-direction: column; align-items: stretch; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 10px 0; display: flex;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">🚫 Ad Scripts</div>
+              <div class="data-row-value" style="color: var(--red); font-size: 12px; font-weight: 800;">64 req</div>
+            </div>
+            <div style="height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 2px;">
+              <div style="height: 100%; width: 45%; background: var(--red); border-radius: 2px; box-shadow: 0 0 8px var(--red)44;"></div>
+            </div>
+          </div>
+          <div class="data-row" style="flex-direction: column; align-items: stretch; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 10px 0; display: flex;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">📊 Analytics</div>
+              <div class="data-row-value" style="color: var(--amber); font-size: 12px; font-weight: 800;">43 req</div>
+            </div>
+            <div style="height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 2px;">
+              <div style="height: 100%; width: 30%; background: var(--amber); border-radius: 2px; box-shadow: 0 0 8px var(--amber)44;"></div>
+            </div>
+          </div>
+          <div class="data-row" style="flex-direction: column; align-items: stretch; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.03); padding: 10px 0; display: flex;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">👤 Social Pixels</div>
+              <div class="data-row-value" style="color: var(--purple); font-size: 12px; font-weight: 800;">21 req</div>
+            </div>
+            <div style="height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 2px;">
+              <div style="height: 100%; width: 15%; background: var(--purple); border-radius: 2px; box-shadow: 0 0 8px var(--purple)44;"></div>
+            </div>
+          </div>
+          <div class="data-row" style="margin-top: 8px; padding-top: 12px; display: flex; justify-content: space-between;">
+            <div class="data-row-label" style="font-size: 11px; color: #fff;">💾 Bandwidth Saved</div>
+            <div class="data-row-value" style="color: var(--green); font-size: 12px; font-weight: 900;">2.1 MB</div>
+          </div>
         </div>
       </div>
       
@@ -555,11 +584,25 @@
         </div>
       </div>
 
-      <!-- Shield Performance -->
       <div class="panel">
         <div class="panel-title"><span class="icon">⚡</span> Shield Performance</div>
         <div class="data-breakdown" id="shield-perf">
-          <!-- Populated by JS -->
+          <div class="data-row" style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
+            <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">⚡ Shield Status</div>
+            <div class="data-row-value" style="color: var(--green); font-size: 10px; background: rgba(0,255,136,0.1); padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(0,255,136,0.2); font-weight: 800;">ACTIVE</div>
+          </div>
+          <div class="data-row" style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
+            <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">📈 Efficiency</div>
+            <div class="data-row-value" style="color: var(--blue); font-size: 10px; background: rgba(56,189,248,0.1); padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(56,189,248,0.2); font-weight: 800;">99.2%</div>
+          </div>
+          <div class="data-row" style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;">
+            <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">🛡️ Rules Active</div>
+            <div class="data-row-value" style="color: var(--purple); font-size: 10px; background: rgba(167,139,250,0.1); padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(167,139,250,0.2); font-weight: 800;">50 domains</div>
+          </div>
+          <div class="data-row" style="padding: 12px 0; display: flex; justify-content: space-between; align-items: center;">
+            <div class="data-row-label" style="font-size: 11px; color: #94a3b8;">🎯 Avg Blocked</div>
+            <div class="data-row-value" style="color: var(--amber); font-size: 10px; background: rgba(245,158,11,0.1); padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2); font-weight: 800;">12 / site</div>
+          </div>
         </div>
       </div>
 

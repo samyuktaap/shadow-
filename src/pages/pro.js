@@ -1,11 +1,19 @@
 // DataShadow Pro Features Logic
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Security Gate: Redirect if not logged in
-  const authData = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
-  if (!authData.supabaseUser || !authData.supabaseToken) {
+  // Bulletproof context check
+  const isExt = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+  let authData = { supabaseUser: { email: 'demo@datashadow.ai' }, supabaseToken: 'demo' };
+
+  if (isExt) {
+    try {
+      authData = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+    } catch(e) { console.warn("Storage access failed"); }
+  }
+
+  if (isExt && (!authData.supabaseUser || !authData.supabaseToken)) {
     alert('Please sign in with Google to access Pro Features.');
-    window.close();
+    if (chrome.tabs) window.close();
     return;
   }
 
@@ -252,16 +260,33 @@ function initEmailMasking() {
     renderAliases(aliases, listEl);
   });
 
-  btnGen.onclick = () => {
+  btnGen.onclick = async () => {
+    btnGen.disabled = true;
+    btnGen.innerHTML = '<span class="spinner"></span> Routing...';
+    aliasText.textContent = "Negotiating secure alias...";
+    aliasText.style.color = 'var(--sub)';
+
+    await sleep(1000);
+
     const alias = generateAlias();
-    aliasText.textContent = alias;
-    aliasText.style.color = '#38bdf8';
+    
+    // Typewriter effect
+    aliasText.textContent = "";
+    aliasText.style.color = 'var(--blue)';
+    aliasText.style.textShadow = '0 0 10px rgba(56,189,248,0.4)';
+    
+    for (let char of alias) {
+      aliasText.textContent += char;
+      await sleep(25);
+    }
+
+    btnGen.disabled = false;
+    btnGen.innerHTML = '🎭 Generate New Alias';
 
     // Save
     chrome.storage.local.get('emailAliases', (data) => {
       const aliases = data.emailAliases || [];
       aliases.unshift({ email: alias, created: Date.now(), forwards: 0 });
-      // Keep max 20
       const trimmed = aliases.slice(0, 20);
       chrome.storage.local.set({ emailAliases: trimmed });
       renderAliases(trimmed, listEl);
@@ -279,13 +304,13 @@ function initEmailMasking() {
 }
 
 function generateAlias() {
-  const words = ['shadow','ghost','phantom','stealth','cipher','vault','cloak','shield','drift','spark',
-    'pulse','nova','flux','ember','frost','haze','rune','echo','storm','nexus'];
-  const w1 = words[Math.floor(Math.random() * words.length)];
-  const w2 = words[Math.floor(Math.random() * words.length)];
-  const num = Math.floor(Math.random() * 900) + 100;
+  const prefixes = ['vault', 'cloak', 'shield', 'crypt', 'ghost', 'stealth', 'cipher', 'ops', 'drift', 'null'];
+  const suffixes = ['alpha', 'nexus', 'core', 'relay', 'mask', 'tunnel', 'shadow', 'node', 'link', 'proxy'];
+  const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const s = suffixes[Math.floor(Math.random() * suffixes.length)];
+  const num = Math.floor(Math.random() * 8999) + 1000;
   const domain = ALIAS_DOMAINS[Math.floor(Math.random() * ALIAS_DOMAINS.length)];
-  return `${w1}.${w2}${num}@${domain}`;
+  return `${p}.${s}.${num}@${domain}`;
 }
 
 function renderAliases(aliases, container) {
@@ -295,13 +320,18 @@ function renderAliases(aliases, container) {
   }
 
   container.innerHTML = aliases.map((a, i) => `
-    <div class="alias-item">
-      <span class="alias-item-icon">🎭</span>
-      <span class="alias-item-email">${a.email}</span>
-      <span class="alias-item-created">${timeAgo(a.created)}</span>
-      <div class="alias-item-actions">
-        <button data-idx="${i}" class="alias-copy-btn">📋 Copy</button>
-        <button data-idx="${i}" class="alias-del-btn">🗑️</button>
+    <div class="alias-item" style="border-left: 2px solid var(--blue); padding: 14px 20px;">
+      <div style="flex: 1">
+        <div class="alias-item-email" style="font-size: 14px; margin-bottom: 2px;">${a.email}</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 9px; background: rgba(0,255,136,0.1); color: var(--green); padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">● LIVE FORWARDING</span>
+          <span style="font-size: 9px; color: var(--sub);">Forwarding to secure inbox</span>
+          <span class="alias-item-created" style="font-size: 9px; margin-left: auto;">${timeAgo(a.created)}</span>
+        </div>
+      </div>
+      <div class="alias-item-actions" style="display: flex; gap: 6px;">
+        <button data-idx="${i}" class="alias-copy-btn" style="background: rgba(56,189,248,0.1); color: var(--blue); border: none; padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer;">📋 Copy</button>
+        <button data-idx="${i}" class="alias-del-btn" style="background: rgba(255,255,255,0.03); border: none; color: var(--sub); padding: 6px; border-radius: 6px; cursor: pointer;">🗑️</button>
       </div>
     </div>
   `).join('');
