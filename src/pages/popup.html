@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 16px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: white;
+      margin: 0;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .logo { font-weight: bold; font-size: 20px; color: #ff3333; }
+    .status-card {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      border: 1px solid #333;
+    }
+    .score { font-size: 48px; font-weight: bold; color: #ff3333; }
+    .label { font-size: 12px; color: #888; margin-top: 4px; }
+    .shield-box {
+      margin-top: 20px;
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 12px 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #333;
+    }
+    .toggle-btn {
+      background: #333;
+      color: #888;
+      border: none;
+      padding: 5px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    .toggle-btn.active {
+      background: #00ff88;
+      color: #004422;
+      box-shadow: 0 0 10px rgba(0,255,136,0.5);
+    }
+    .footer-btn {
+      width: 100%;
+      background: #ff3333;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 15px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .nuke-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #ff3333, #880000);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 4px 15px rgba(255, 51, 51, 0.4);
+      transition: 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .nuke-btn:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 20px rgba(255, 51, 51, 0.6);
+      filter: brightness(1.2);
+    }
+    .value-saved-container {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 11px;
+      color: #888;
+      background: rgba(255,255,255,0.03);
+      padding: 6px;
+      border-radius: 8px;
+    }
+    .value-saved-container span {
+      color: #facc15;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="header" style="display:flex; align-items:center; gap:8px;">
+    <img src="assets/icon128.png" alt="Logo" style="width:24px; height:24px;">
+    <div class="logo">DataShadow</div>
+    <div class="version" style="margin-left:auto">v1.0</div>
+  </div>
+  <div class="status-card">
+    <div class="score" id="score">--</div>
+    <div class="label">CURRENT PRIVACY RISK</div>
+  </div>
+
+  <div class="shield-box">
+    <span>Shadow Shield</span>
+    <button class="toggle-btn" id="shield-toggle">OFF</button>
+  </div>
+
+  <button class="nuke-btn" id="nuke-btn">
+    ☢️ Detonate Privacy Nuke
+  </button>
+
+  <div class="value-saved-container">
+    💰 Data Market Value Saved: <span id="market-value-popup">$0.00</span>
+  </div>
+
+  <div class="shield-box" style="margin-top:10px; padding: 10px 15px; border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.02);">
+    <div>
+      <div style="font-size:13px; font-weight:bold;">Allow on this site</div>
+      <div style="font-size:10px; color:#888; margin-top:2px;" id="current-domain">Checking...</div>
+    </div>
+    <button class="toggle-btn" id="whitelist-toggle" style="background:#444; color:#aaa; font-size:11px; padding:4px 12px;">OFF</button>
+  </div>
+
+  <button class="footer-btn" id="analyze-btn">Full Analysis</button>
+  <button class="footer-btn" id="dashboard-btn" style="background:#1e1e1e;border:1px solid #333;color:#38bdf8;margin-top:8px">📊 Value Dashboard</button>
+  <button class="footer-btn" id="pro-btn" style="background: linear-gradient(135deg, rgba(167,139,250,0.15), rgba(56,189,248,0.15)); border: 1px solid rgba(167,139,250,0.3); color: #a78bfa; margin-top:8px">⚡ Pro Features</button>
+  <div id="auth-section" style="margin-top: 15px; text-align: center; border-top: 1px solid #333; padding-top: 15px;">
+    <div id="user-info" style="display: none; font-size: 12px; color: #888; margin-bottom: 10px;">Logged in as: <span id="user-email" style="color: #38bdf8; font-weight: bold;"></span></div>
+    <button class="footer-btn" id="login-btn" style="background: white; color: black; margin-top: 0;">Sign in with Google</button>
+    <button class="footer-btn" id="logout-btn" style="background: #333; color: #aaa; margin-top: 0; display: none;">Log out</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
