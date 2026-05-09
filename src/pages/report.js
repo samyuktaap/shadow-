@@ -11,7 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.storage.local.get(['lastAnalysis', 'shieldActive'], (data) => {
     if (data.lastAnalysis) {
       const { domain, cookieCount, trackerNames, riskLevel, dangerousFields, detailedAnalysis } = data.lastAnalysis;
-      const score = data.lastAnalysis.score !== undefined ? data.lastAnalysis.score : Math.min(cookieCount * 5, 100);
+      let score = parseFloat(data.lastAnalysis.score);
+      if (isNaN(score)) score = Math.min((parseFloat(cookieCount) || 0) * 5, 100);
+      score = Math.round(score);
+
       
       document.getElementById('domain-display').innerText = `🌐 ${domain}`;
       document.getElementById('score-display').innerText = score;

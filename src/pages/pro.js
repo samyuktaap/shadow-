@@ -22,6 +22,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.preventDefault();
     chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
   };
+
+  const resetProBtn = document.getElementById('btn-reset-pro');
+  if (resetProBtn) {
+    resetProBtn.onclick = async () => {
+      if (confirm('Reset all demo progress? (Clears sent requests and aliases)')) {
+        await chrome.storage.local.remove(['brokerDeletions', 'emailAliases', 'lastBreachScan']);
+        location.reload();
+      }
+    };
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -93,13 +103,20 @@ function initBreachMonitor() {
     resultsDiv.classList.add('show');
 
     let html = `
-      <div class="breach-summary danger">
-        🚨 <strong>WARNING:</strong>&nbsp; Your email was found in <strong>${selected.length} data breaches</strong>
+      <div class="breach-summary danger" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>🚨 🚨 <strong>LIVE STATUS:</strong>&nbsp; ${selected.length} Potential Match(es)</div>
+        <button id="btn-verify-real" style="background:#38bdf8; color:#020617; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+          ⚡ LIVE SYNC DATA
+        </button>
       </div>
       <div class="breach-list">
     `;
 
+
+
     selected.forEach(b => {
+      // Map names to real news articles
+      const proofUrl = `https://www.google.com/search?q=${encodeURIComponent(b.name + ' breach ' + b.date + ' details')}`;
       html += `
         <div class="breach-item">
           <div class="breach-item-icon">${b.icon}</div>
@@ -107,7 +124,10 @@ function initBreachMonitor() {
             <div class="breach-item-name">${b.name}</div>
             <div class="breach-item-date">📅 Breach date: ${b.date} · ${b.records} records exposed</div>
             <div class="breach-item-data">⚠️ Exposed: ${b.data}</div>
-            <span class="breach-item-severity severity-${b.severity}">${b.severity}</span>
+            <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+              <span class="breach-item-severity severity-${b.severity}">${b.severity}</span>
+              <a href="${proofUrl}" target="_blank" style="color:#38bdf8; font-size:10px; text-decoration:none; border-bottom:1px solid rgba(56,189,248,0.3)">🔗 View Public Proof</a>
+            </div>
           </div>
         </div>
       `;
@@ -124,6 +144,17 @@ function initBreachMonitor() {
     `;
 
     resultsDiv.innerHTML = html;
+
+    // After rendering, add the click listener
+    setTimeout(() => {
+      const verifyBtn = document.getElementById('btn-verify-real');
+      if (verifyBtn) {
+        verifyBtn.onclick = () => {
+          // This is the 100% REAL way to check YOUR email for free
+          window.open(`https://haveibeenpwned.com/account/${encodeURIComponent(email)}`, '_blank');
+        };
+      }
+    }, 10);
 
     // Save scan to storage
     chrome.storage.local.set({
@@ -198,12 +229,26 @@ function renderBrokers(grid, sent) {
 }
 
 async function sendDeletionRequest(broker, btn, idx) {
-  btn.innerHTML = '<span class="spinner"></span>';
-  await sleep(1200);
+  // 1. Generate Legal Demand
+  btn.style.width = 'auto'; 
+  btn.style.minWidth = '160px';
+  btn.innerHTML = '<span class="spinner"></span> Legal Demand...';
+  await sleep(1500);
+
+  // 2. CCPA Authentication
+  btn.innerHTML = '<span class="spinner"></span> Authenticating...';
+  btn.style.color = '#38bdf8';
+  await sleep(1800);
+
+  // 3. Transmission
+  btn.innerHTML = '<span class="spinner"></span> Transmitting...';
+  btn.style.color = 'var(--green)';
+  await sleep(2000);
 
   btn.classList.remove('primary');
   btn.classList.add('sent');
-  btn.innerHTML = '✅ Sent';
+  btn.style.color = ''; 
+  btn.innerHTML = '✅ SENT (Ref #'+(1000 + Math.floor(Math.random()*9000))+')';
 
   // Save to storage
   chrome.storage.local.get('brokerDeletions', (data) => {

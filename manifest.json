@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DataShadow",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Expose the shadow data websites collect about you.",
   "permissions": [
     "cookies",
@@ -10,13 +10,21 @@
     "activeTab",
     "scripting",
     "declarativeNetRequest",
-    "identity"
+    "declarativeNetRequestFeedback",
+    "identity",
+    "geolocation"
   ],
   "host_permissions": [
     "<all_urls>"
   ],
+  "declarative_net_request": {
+    "rule_resources": []
+  },
   "background": {
     "service_worker": "src/scripts/background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com data:; connect-src 'self' https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.supabase.co;"
   },
   "content_scripts": [
     {
@@ -38,7 +46,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/pages/report.html", "src/pages/dashboard.html", "src/pages/pro.html", "src/pages/auth-callback.html", "public/world-map.svg"],
+      "resources": ["src/pages/*.html", "public/*", "src/pages/*.css", "src/pages/*.js"],
       "matches": ["<all_urls>"]
     }
   ]

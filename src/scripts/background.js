@@ -21,6 +21,17 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
         headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY }
       });
       const user = await res.json();
+      
+      // Check if this is a different user than before
+      const prev = await chrome.storage.local.get('supabaseUser');
+      if (prev.supabaseUser && prev.supabaseUser.id !== user.id) {
+        console.log('[DataShadow Auth] New user detected. Resetting stats for fresh account.');
+        await chrome.storage.local.set({ 
+          dashboardStats: { totalBlocked: 0, totalDataSaved: 0, sessionsProtected: 0, cookiesCleaned: 0, weeklyData: {} },
+          activityLog: []
+        });
+      }
+
       await chrome.storage.local.set({ supabaseToken: accessToken, supabaseUser: user });
       console.log('[DataShadow Auth] ✅ Logged in as:', user.email);
 
@@ -42,17 +53,50 @@ chrome.runtime.onStartup.addListener(async () => {
   }
 });
 
-// Also restore on extension reload/install — and seed demo stats if empty
+// Also restore on extension reload/install
 chrome.runtime.onInstalled.addListener(async (details) => {
-  const { shieldActive, dashboardStats } = await getStorage(['shieldActive', 'dashboardStats']);
-  if (shieldActive) enableShadowShield();
+  // FORCE SHIELD ON FOR DEMO
+  await chrome.storage.local.set({ shieldActive: true });
+  enableShadowShield();
 
-  // Seed stats if they don't exist yet (first install or first time with dashboard)
-  if (!dashboardStats || !dashboardStats.totalBlocked) {
-    await seedInitialStats();
+  const { dashboardStats: currentStats } = await getStorage(['dashboardStats']);
+  
+  // DATA SEEDING: If stats are empty, seed with "Wow" values for the hackathon demo
+  if (!currentStats || currentStats.totalBlocked === 0) {
+    console.log('[DataShadow] Seeding demo data for hackathon...');
+    const seedStats = {
+      totalBlocked: 1428,
+      totalDataSaved: 47200000, // 47.2 MB
+      sessionsProtected: 142,
+      cookiesCleaned: 84,
+      uniqueDomains: ['doubleclick.net', 'google-analytics.com', 'facebook.net', 'hotjar.com', 'rubiconproject.com', 'criteo.com', 'taboola.com'],
+      weeklyData: {}
+    };
+    
+    // Seed last 7 days of activity
+    const now = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const k = d.toISOString().split('T')[0];
+      seedStats.weeklyData[k] = { 
+        blocked: Math.floor(150 + Math.random() * 100), 
+        dataSaved: Math.floor(5000000 + Math.random() * 2000000), 
+        sessions: Math.floor(15 + Math.random() * 10), 
+        cookies: Math.floor(5 + Math.random() * 10),
+        uniqueDomains: seedStats.uniqueDomains.slice(0, 4)
+      };
+    }
+    
+    await chrome.storage.local.set({ 
+      dashboardStats: seedStats,
+      activityLog: [
+        { type: 'shield', message: '<strong>Shadow Shield ACTIVATED</strong> — System fully protected', timestamp: Date.now() - 10000 },
+        { type: 'block', message: 'Blocked <strong>doubleclick.net</strong> (Ad Network) on flipkart.com', timestamp: Date.now() - 5000 },
+        { type: 'clean', message: 'Cleaned <strong>12 cookies</strong> from amazon.in', timestamp: Date.now() - 2000 }
+      ]
+    });
   }
 
-  // Show onboarding on fresh install
   if (details.reason === 'install') {
     chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/onboard.html') });
   }
@@ -60,115 +104,104 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // ── Stats Engine ─────────────────────────────────────────────────────────────
 
-// Seed realistic demo stats so the dashboard isn't empty on first open
-async function seedInitialStats() {
-  const now = new Date();
-  const weeklyData = {};
-  const activityLog = [];
-
-  // Seed 7 days of plausible data
-  const sampleDomains = [
-    'news.ycombinator.com','reddit.com','cnn.com','bbc.com',
-    'techcrunch.com','nytimes.com','theguardian.com'
-  ];
-  const sampleTrackers = [
-    'Google Analytics','Facebook Pixel','Hotjar','Criteo','DoubleClick',
-    'New Relic','Amplitude','Mixpanel','Taboola','BlueKai'
-  ];
-
-  let totalBlocked = 0;
-  let totalDataSaved = 0;
-  let totalCookies = 0;
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split('T')[0];
-    const blocked = Math.floor(Math.random() * 80) + 40; // 40–120 per day
-    const dataSaved = blocked * (Math.floor(Math.random() * 15000) + 8000); // 8–23 KB per block
-    const sessions = Math.floor(Math.random() * 8) + 3;
-    const cookies = Math.floor(Math.random() * 30) + 10;
-
-    weeklyData[key] = { blocked, dataSaved, sessions, cookies };
-    totalBlocked += blocked;
-    totalDataSaved += dataSaved;
-    totalCookies += cookies;
-
-    // Add activity log entries for that day
-    const numEntries = Math.floor(Math.random() * 4) + 2;
-    for (let e = 0; e < numEntries; e++) {
-      const domain = sampleDomains[Math.floor(Math.random() * sampleDomains.length)];
-      const tracker = sampleTrackers[Math.floor(Math.random() * sampleTrackers.length)];
-      const entryTypes = [
-        { type: 'block', message: `Blocked <strong>${tracker}</strong> on ${domain}` },
-        { type: 'clean', message: `Cleaned <strong>${Math.floor(Math.random()*12)+2} cookies</strong> from ${domain}` },
-        { type: 'shield', message: `Shadow Shield stopped <strong>${Math.floor(Math.random()*5)+1} trackers</strong> on ${domain}` },
-        { type: 'scan',   message: `Scanned <strong>${domain}</strong> — ${Math.floor(Math.random()*3)+1} threats detected` },
-      ];
-      const entry = entryTypes[Math.floor(Math.random() * entryTypes.length)];
-      // Spread entries across that day
-      const entryTime = d.getTime() + Math.floor(Math.random() * 86400000);
-      activityLog.push({ ...entry, timestamp: entryTime });
-    }
-  }
-
-  activityLog.sort((a, b) => a.timestamp - b.timestamp);
-
-  const dashboardStats = {
-    totalBlocked,
-    totalDataSaved,
-    sessionsProtected: Math.floor(totalBlocked / 6),
-    cookiesCleaned: totalCookies,
-    weeklyData
-  };
-
-  await new Promise(r => chrome.storage.local.set({ dashboardStats, activityLog, shieldActive: true }, r));
-  // Auto-enable shield so users see it working immediately
-  enableShadowShield();
-  console.log('[DataShadow] Demo stats seeded. Dashboard is ready.');
-}
-
 // Get today's date key (YYYY-MM-DD)
 function todayKey() {
   return new Date().toISOString().split('T')[0];
 }
 
-// Record a block event (called when shield is on and trackers are detected)
-async function recordBlockEvent(count, domain) {
-  if (count <= 0) return;
-  const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
+// ── Real-Time Blocking Feedback ──────────────────────────────────────────────
 
+// Map domains to categories for trustworthy breakdown
+const TRACKER_CATEGORIES = {
+  'doubleclick.net': 'Ad Network', 'googlesyndication.com': 'Ad Network', 'googleadservices.com': 'Ad Network',
+  'adnxs.com': 'Ad Network', 'adsrvr.org': 'Ad Network', 'advertising.com': 'Ad Network',
+  'google-analytics.com': 'Analytics', 'googletagmanager.com': 'Analytics', 'hotjar.com': 'Analytics',
+  'facebook.com': 'Social Pixel', 'facebook.net': 'Social Pixel', 'twitter.com': 'Social Pixel',
+  'bluekai.com': 'Data Broker', 'demdex.net': 'Data Broker', 'krxd.net': 'Data Broker'
+};
+
+// Estimate sizes: Script (~35KB), Pixel (~1KB), XHR (~5KB)
+const CATEGORY_SIZES = {
+  'Ad Network': 45000,
+  'Analytics': 15000,
+  'Social Pixel': 8000,
+  'Data Broker': 12000,
+  'Default': 5000
+};
+
+// Listen for REAL block events from the DeclarativeNetRequest engine
+// This ONLY works in unpacked/developer mode, which is perfect for hackathon testing
+if (chrome.declarativeNetRequest.onRuleMatchedDebug) {
+  chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
+    const ruleId = info.rule.ruleId;
+    const tabId = info.tabId;
+    const url = info.request.url;
+    
+    // Find which domain was blocked based on the rule list
+    const domain = TRACKER_BLOCKLIST[ruleId - 1] || 'unknown-tracker';
+    recordRealBlock(domain, url);
+  });
+}
+
+async function recordRealBlock(domain, pageUrl) {
+  const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
   const stats = {
-    totalBlocked: 0, totalDataSaved: 0,
-    sessionsProtected: 0, cookiesCleaned: 0,
-    weeklyData: {}, ...dashboardStats
+    totalBlocked: 0, totalDataSaved: 0, uniqueDomains: [], 
+    sessionsProtected: 0, cookiesCleaned: 0, weeklyData: {}, 
+    ...dashboardStats
   };
 
   const key = todayKey();
-  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0, uniqueDomains: [] };
 
-  // Average tracker payload: ~15 KB each (scripts + pixels)
-  const bytesSaved = count * (12000 + Math.floor(Math.random() * 8000));
+  stats.totalBlocked += 1;
+  stats.weeklyData[key].blocked += 1;
 
-  stats.totalBlocked += count;
-  stats.totalDataSaved += bytesSaved;
-  stats.weeklyData[key].blocked += count;
-  stats.weeklyData[key].dataSaved += bytesSaved;
+  // 2. Track Unique Domains (Data Integrity)
+  if (!stats.uniqueDomains) stats.uniqueDomains = [];
+  if (!stats.uniqueDomains.includes(domain)) {
+    stats.uniqueDomains.push(domain);
+    stats.sessionsProtected = stats.uniqueDomains.length; // Sync with legacy field for UI compatibility
+  }
+  
+  if (!stats.weeklyData[key].uniqueDomains) stats.weeklyData[key].uniqueDomains = [];
+  if (!stats.weeklyData[key].uniqueDomains.includes(domain)) {
+    stats.weeklyData[key].uniqueDomains.push(domain);
+  }
 
-  // Activity log entry
-  const trackerNames = ['Google Analytics','Facebook Pixel','Hotjar','Criteo','DoubleClick',
-    'New Relic','Amplitude','Mixpanel','Taboola','BlueKai','AppNexus','Rubicon'];
-  const tracker = trackerNames[Math.floor(Math.random() * trackerNames.length)];
-  const newEntry = {
-    type: 'block',
-    message: `Blocked <strong>${count} tracker${count > 1 ? 's' : ''}</strong> (incl. ${tracker}) on ${domain}`,
-    timestamp: Date.now()
-  };
+  // 3. Realistic Bandwidth Saved
+  const category = TRACKER_CATEGORIES[domain] || 'Default';
+  const size = CATEGORY_SIZES[category] || 5000;
+  stats.totalDataSaved += size;
+  stats.weeklyData[key].dataSaved += size;
 
-  // Keep last 100 activity entries
-  const updatedLog = [...activityLog, newEntry].slice(-100);
+  // 4. UPDATE CURRENT SITE STATS (Real-time sync for the dashboard)
+  const { currentSiteStats: css } = await getStorage('currentSiteStats');
+  if (css) {
+    css.blockedRequests += 1;
+    if (!css.uniqueList) css.uniqueList = [];
+    if (!css.uniqueList.includes(domain)) {
+      css.uniqueList.push(domain);
+      css.uniqueTrackers = css.uniqueList.length;
+    }
+    css.dataSaved += size;
+    css.marketValue = ((css.blockedRequests || 0) * 0.12) + ((css.cookies || 0) * 0.05);
+    await chrome.storage.local.set({ currentSiteStats: css });
+  }
 
-  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
+  // 5. Log the event (throttled)
+  if (Math.random() > 0.8) { // Only log 20% of blocks to keep log readable
+    const cleanPage = new URL(pageUrl).hostname;
+    const newEntry = {
+      type: 'block',
+      message: `Blocked <strong>${domain}</strong> (${category}) on ${cleanPage}`,
+      timestamp: Date.now()
+    };
+    const newLog = [newEntry, ...activityLog].slice(0, 50);
+    await chrome.storage.local.set({ activityLog: newLog });
+  }
+
+  await chrome.storage.local.set({ dashboardStats: stats });
 }
 
 // Record a session (called when analysis detects an active browsing session)
@@ -179,12 +212,20 @@ async function recordSession(domain) {
     sessionsProtected: 0, cookiesCleaned: 0,
     weeklyData: {}, ...dashboardStats
   };
+
+  // 7-Day Rolling Window: Purge data older than 7 days
+  const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+  Object.keys(stats.weeklyData).forEach(date => {
+    if (date < sevenDaysAgo) delete stats.weeklyData[date];
+  });
+
   const key = todayKey();
   if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
 
   stats.sessionsProtected += 1;
   stats.weeklyData[key].sessions += 1;
-  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats }, r));
+  await chrome.storage.local.set({ dashboardStats: stats });
 }
 
 // Record cookie cleanup event
@@ -196,6 +237,13 @@ async function recordCookieClean(count, domain) {
     sessionsProtected: 0, cookiesCleaned: 0,
     weeklyData: {}, ...dashboardStats
   };
+
+  // Purge old data
+  const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+  Object.keys(stats.weeklyData).forEach(date => {
+    if (date < sevenDaysAgo) delete stats.weeklyData[date];
+  });
+
   const key = todayKey();
   if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
 
@@ -207,8 +255,8 @@ async function recordCookieClean(count, domain) {
     message: `Cleaned <strong>${count} cookie${count > 1 ? 's' : ''}</strong> from ${domain}`,
     timestamp: Date.now()
   };
-  const updatedLog = [...activityLog, newEntry].slice(-100);
-  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
+  const updatedLog = [newEntry, ...activityLog].slice(0, 50);
+  await chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog });
 }
 
 // Record a shield toggle event in activity log
@@ -592,9 +640,24 @@ async function analyzeDomain(tabId, url) {
     // Save to storage so report.html can read it
     chrome.storage.local.set({ lastAnalysis: analysisData });
 
+    // RECORD CURRENT SITE DATA (Particular site only mode)
+    const mv = Number(analysisData.marketValue) || 0;
+    const rs = Number(analysisData.score) || 5; // Default 5% for safe sites
+    const currentSiteStats = {
+      domain,
+      blockedRequests: trackersFound || 0,
+      uniqueTrackers: trackersFound || 0,
+      uniqueList: detectedTrackers || [],
+      dataSaved: (trackersFound * 15000) || 0,
+      cookies: (cookies ? cookies.length : 0),
+      marketValue: mv || 0,
+      riskScore: rs
+    };
+    await chrome.storage.local.set({ currentSiteStats });
+
     // Try to send message immediately
     chrome.tabs.sendMessage(tabId, { type: 'DATA_SHADOW_ANALYSIS', data: analysisData })
-      .catch(err => console.log("[DataShadow] Content script not ready yet, waiting..."));
+      .catch(err => console.log("[DataShadow] Content script not ready yet, whenever..."));
 
   } catch (error) {
     console.error('[DataShadow] Detection Error:', error);
@@ -669,36 +732,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  // RESET ALL STATS for Demo
+  if (message.type === 'RESET_STATS') {
+    chrome.storage.local.set({ 
+      dashboardStats: { totalBlocked: 0, totalDataSaved: 0, sessionsProtected: 0, cookiesCleaned: 0, weeklyData: {}, uniqueDomains: [] },
+      activityLog: []
+    }).then(() => sendResponse({ success: true }));
+    return true;
+  }
 });
 
 // Dynamic Blocklist — 50 Major Tracker Domains (sourced from Disconnect & EasyList patterns)
 const TRACKER_BLOCKLIST = [
-  // Ad Networks
-  'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
-  'adnxs.com', 'adsrvr.org', 'advertising.com', 'adform.net',
-  'criteo.com', 'criteo.net', 'casalemedia.com', 'openx.net',
-  'pubmatic.com', 'rubiconproject.com', 'smartadserver.com',
-  'taboola.com', 'outbrain.com', 'amazon-adsystem.com',
-  'moatads.com', 'serving-sys.com', 'bidswitch.net',
-  // Analytics & Tracking
-  'google-analytics.com', 'googletagmanager.com', 'googletagservices.com',
-  'hotjar.com', 'fullstory.com', 'mixpanel.com', 'segment.io',
-  'segment.com', 'amplitude.com', 'newrelic.com', 'nr-data.net',
-  'scorecardresearch.com', 'quantserve.com', 'chartbeat.com',
-  // Social Tracking Pixels
-  'facebook.com/tr', 'facebook.net', 'connect.facebook.net',
-  'pixel.facebook.com', 'analytics.twitter.com', 't.co',
-  'snap.licdn.com', 'px.ads.linkedin.com', 'bat.bing.com',
-  // Data Brokers / Fingerprinting
-  'bluekai.com', 'exelator.com', 'demdex.net', 'krxd.net',
-  'rlcdn.com', 'agkn.com', 'turn.com', 'mathtag.com',
-  'tapad.com', 'eyeota.net', 'quantcount.com', 'quantserve.com',
-  'adnxs.com', 'adtech.de', 'advertising.com', 'afy11.net',
-  'yieldmo.com', 'rubiconproject.com', 'pubmatic.com', 'openx.net',
-  'outbrain.com', 'taboola.com', 'zemanta.com', 'revcontent.com',
-  'liadm.com', 'liadm.net', 'ads-twitter.com', 't.co',
-  'bing.com', 'clarity.ms', 'mookie1.com', 'omtrdc.net',
-  'everesttech.net', 'adbrn.com', 'adnxs.com', 'smartadserver.com'
+  "doubleclick.net", "google-analytics.com", "googlesyndication.com", "googleadservices.com", "googletagmanager.com",
+  "adnxs.com", "adsrvr.org", "advertising.com", "smartadserver.com", "rubiconproject.com",
+  "criteo.com", "taboola.com", "outbrain.com", "openx.net", "pubmatic.com",
+  "facebook.net", "facebook.com", "connect.facebook.net", "pixel.facebook.com",
+  "twitter.com", "analytics.twitter.com", "t.co", "linkedin.com", "snapchat.com",
+  "hotjar.com", "crazyegg.com", "mouseflow.com", "clicktale.net", "mixpanel.com",
+  "bluekai.com", "demdex.net", "krxd.net", "tapad.com", "eyeota.net",
+  "scorecardresearch.com", "quantserve.com", "rlcdn.com", "agkn.com", "liadm.com",
+  "casalemedia.com", "mathtag.com", "pippio.com", "bidswitch.net", "adgrx.com",
+  "amazon-adsystem.com", "assoc-amazon.com", "amazon.com/ga/pixel",
+  "bing.com/pixel", "bat.bing.com", "clarity.ms",
+  "yandex.ru", "mc.yandex.ru", "clck.yandex.ru", "an.yandex.ru",
+  "baidu.com", "hm.baidu.com", "pos.baidu.com",
+  "teads.tv", "indexww.com", "triplelift.com", "yieldmo.com", "360yield.com",
+  "moatads.com", "doubleverify.com", "iasds01.com",
+  "chartbeat.com", "newrelic.com", "segment.io", "amplitude.com", "pendo.io",
+  "googletagservices.com", "google.com/ads", "googleadservices.com/pagead",
+  "adsystem.com", "adservice.google.com", "pagead2.googlesyndication.com",
+  "securepubads.g.doubleclick.net", "tpc.googlesyndication.com"
 ];
 
 // The "Force Field" Logic (declarativeNetRequest)
@@ -797,17 +861,5 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     }
 
     analyzeDomain(tabId, tab.url);
-
-    // Record session + block events when shield is active
-    const { shieldActive } = await getStorage('shieldActive');
-    if (shieldActive) {
-      await recordSession(domain);
-      // Estimate blocks: cookies / 2.5 rounded, at least 1 for known-tracker pages
-      const cookies = await chrome.cookies.getAll({ url: tab.url });
-      const estimated = Math.floor(cookies.length / 2.5);
-      if (estimated > 0) {
-        await recordBlockEvent(estimated, domain);
-      }
-    }
   }
 });

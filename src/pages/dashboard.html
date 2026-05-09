@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DataShadow — Value Dashboard</title>
+
   <meta name="description" content="See exactly how DataShadow protects your privacy — trackers blocked, data saved, and global threat map.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -34,8 +35,10 @@
       background: #050508;
       color: var(--text);
       min-height: 100vh;
+      margin: 0;
+      padding: 0;
       overflow-x: hidden;
-      perspective: 1000px;
+      overflow-y: auto !important; /* Force scroll */
     }
 
     /* Animated Glowing Orbs Background */
@@ -115,7 +118,7 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 16px;
       margin-bottom: 28px;
     }
@@ -130,10 +133,9 @@
       padding: 24px 22px;
       position: relative;
       overflow: hidden;
-      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      transition: all 0.3s ease;
       cursor: default;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 2px 10px rgba(255,255,255,0.05);
-      transform-style: preserve-3d;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
     .stat-card:hover {
       transform: translateY(-8px) perspective(800px) rotateX(4deg) rotateY(4deg) scale(1.02);
@@ -187,6 +189,41 @@
     }
     .stat-change.up   { background: rgba(0,255,136,0.08); color: var(--green); }
     .stat-change.info { background: rgba(56,189,248,0.08); color: var(--blue); }
+
+    /* User Profile */
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      padding: 6px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .user-email {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .logout-link {
+      font-size: 10px;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .logout-link:hover { color: var(--red); }
 
     /* ── Content Grid ── */
     .content-row {
@@ -422,7 +459,106 @@
       animation: shimmer 1.2s infinite;
       border-radius: 6px;
     }
+    /* ── Live Map Styles ── */
+    .leaflet-container { 
+      background: #050508 !important; 
+      filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    }
+    .map-info-card {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      z-index: 1000;
+      background: rgba(15, 17, 23, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 16px 20px;
+      width: 220px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .map-info-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      color: var(--blue);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .map-info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .map-info-row span:first-child { color: var(--sub); }
+
+    #privacy-map {
+      width: 100%;
+      height: 480px; /* Explicit height is REQUIRED for Leaflet */
+      background: #020617;
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    #privacy-map::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(to bottom, transparent 50%, rgba(56, 189, 248, 0.03) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* Radar Scan Animation */
+    .radar-scan {
+      position: absolute;
+      top: -100%; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(to bottom, transparent, rgba(56, 189, 248, 0.1), transparent);
+      animation: scan 4s linear infinite;
+      z-index: 1001;
+      pointer-events: none;
+    }
+
+    @keyframes scan {
+      0% { top: -100%; }
+      100% { top: 100%; }
+    }
+
+    /* Pulsing Location Dot */
+    .user-location-dot {
+      width: 14px;
+      height: 14px;
+      background: var(--blue);
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 15px var(--blue);
+    }
+    .user-location-pulse {
+      width: 30px;
+      height: 30px;
+      background: rgba(56, 189, 248, 0.4);
+      border-radius: 50%;
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      animation: pulse-ring 1.8s infinite ease-out;
+    }
+    @keyframes pulse-ring {
+      from { transform: scale(0.4); opacity: 1; }
+      to { transform: scale(2.2); opacity: 0; }
+    }
     @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+    @keyframes pulse-badge {
+      0% { opacity: 0.4; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 0.4; transform: scale(0.8); }
+    }
   </style>
 </head>
 <body>
@@ -436,11 +572,23 @@
           Shield Active — Protecting You Now
         </div>
       </div>
-      <div class="dash-nav">
-        <a href="#" class="active" id="nav-dashboard">Dashboard</a>
-        <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
-        <a href="#" id="nav-report">Full Report</a>
-        <a href="#" class="cta" id="nav-report-cta">View Privacy Report</a>
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div class="dash-nav">
+          <a href="#" class="active" id="nav-dashboard">Dashboard</a>
+          <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
+          <a href="#" id="nav-report">Full Report</a>
+        </div>
+        <div class="user-profile" id="user-profile" style="display:none;">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <div>
+            <div class="user-email" id="user-email">user@example.com</div>
+            <div style="display: flex; gap: 12px; align-items: center; margin-top: 2px;">
+              <div class="logout-link" id="reset-stats-btn" style="color: #ff6666;">Reset Stats</div>
+              <div style="color: #4b5563; font-size: 10px;">•</div>
+              <div class="logout-link" id="logout-btn">Sign Out</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -449,19 +597,19 @@
       <div class="stat-card red animate-in delay-1">
         <span class="stat-icon">🛡️</span>
         <div class="stat-value" id="total-blocked">—</div>
-        <div class="stat-label">Trackers Blocked</div>
+        <div class="stat-label">Requests Blocked</div>
         <div class="stat-change up" id="blocked-change">↑ loading…</div>
       </div>
       <div class="stat-card green animate-in delay-2">
         <span class="stat-icon">💾</span>
         <div class="stat-value" id="data-saved">—</div>
-        <div class="stat-label">Data Saved</div>
+        <div class="stat-label">Bandwidth Saved</div>
         <div class="stat-change up" id="data-change">↑ loading…</div>
       </div>
       <div class="stat-card blue animate-in delay-3">
         <span class="stat-icon">🔒</span>
         <div class="stat-value" id="sessions-protected">—</div>
-        <div class="stat-label">Sessions Protected</div>
+        <div class="stat-label">Unique Trackers</div>
         <div class="stat-change info" id="sessions-change">↑ loading…</div>
       </div>
       <div class="stat-card purple animate-in delay-4">
@@ -470,39 +618,36 @@
         <div class="stat-label">Cookies Cleaned</div>
         <div class="stat-change up" id="cookies-change">↑ loading…</div>
       </div>
-    </div>
-
-    <!-- ── Row 1: Massive Privacy Map ── -->
-    <div class="content-row animate-in delay-4" style="grid-template-columns: 1fr;">
-      <!-- Privacy Threat Map -->
-      <div class="panel map-wrapper" style="padding: 0;">
-        <div class="panel-header" style="padding: 24px 28px 0; margin-bottom: 16px;">
-          <div class="panel-title" style="margin-bottom:0; font-size: 22px;">
-            <span class="icon">🌍</span>
-            Global Threat Map
-          </div>
-          <div class="panel-meta" style="font-size: 13px; color: var(--blue); font-weight: bold; background: rgba(56,189,248,0.1); padding: 6px 12px; border-radius: 20px;">
-            <span id="map-count-label">0 server locations</span>
-          </div>
-        </div>
-        <div class="map-container" id="map-container">
-          <div class="map-scanline"></div>
-          <div class="map-tooltip" id="map-tooltip">
-            <div class="tt-name"></div>
-            <div class="tt-loc"></div>
-            <div class="tt-type"></div>
-          </div>
-          <!-- SVG rendered by JS -->
-        </div>
-        <div class="map-legend" style="padding: 0 28px 24px;">
-          <span class="map-legend-label">Threat type:</span>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#ff3333; box-shadow: 0 0 10px #ff3333;"></div>Ad Networks</div>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#f59e0b; box-shadow: 0 0 10px #f59e0b;"></div>Analytics</div>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#a78bfa; box-shadow: 0 0 10px #a78bfa;"></div>Social Pixels</div>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#38bdf8; box-shadow: 0 0 10px #38bdf8;"></div>Data Brokers</div>
-        </div>
+      <div class="stat-card amber animate-in delay-5" style="border-color: var(--amber); box-shadow: 0 0 20px rgba(245,158,11,0.15);">
+        <span class="stat-icon">💎</span>
+        <div class="stat-value" id="market-value" style="color: var(--amber);">$0.00</div>
+        <div class="stat-label">Est. Data Value</div>
+        <div class="stat-change info" style="background: rgba(245,158,11,0.08); color: var(--amber);">EDUCATIONAL ESTIMATE</div>
+      </div>
+      <div class="stat-card red animate-in delay-6" style="border-color: #ef4444; box-shadow: 0 0 20px rgba(239,68,68,0.1);">
+        <span class="stat-icon">🧠</span>
+        <div class="stat-value" id="risk-score" style="color: #ef4444;">0%</div>
+        <div class="stat-label">ML Privacy Risk</div>
+        <div class="stat-change danger" id="risk-status">ANALYZING...</div>
       </div>
     </div>
+
+    <!-- ── Data Insights ── -->
+    <div class="content-row animate-in delay-7" style="grid-template-columns: 1fr 1fr;">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">DATA SENSOR BREAKDOWN</h2>
+        </div>
+        <div id="data-breakdown"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">SHIELD PERFORMANCE</h2>
+        </div>
+        <div id="shield-perf"></div>
+      </div>
+    </div>
+    <!-- Row 2 -->
 
     <!-- ── Row 2: Charts and Breakdown ── -->
     <div class="content-row-3 animate-in delay-5">
@@ -510,8 +655,12 @@
       <div class="panel" style="grid-column: span 2;">
         <div class="panel-title">
           <span class="icon">📊</span>
-          Weekly Tracker Activity
-          <span class="panel-subtitle" id="chart-subtitle">last 7 days</span>
+          Weekly Tracker Activity 
+          <span style="margin-left: 8px; font-size: 9px; background: rgba(0,255,136,0.1); color: var(--green); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(0,255,136,0.3); display: flex; align-items: center; gap: 4px;">
+            <span style="width: 4px; height: 4px; border-radius: 50%; background: var(--green); animation: pulse-badge 1s infinite;"></span>
+            LIVE
+          </span>
+          <span class="panel-subtitle" id="chart-subtitle" style="margin-left: auto;">last 7 days</span>
         </div>
         <div class="chart-container" id="weekly-chart">
           <!-- Populated by JS -->

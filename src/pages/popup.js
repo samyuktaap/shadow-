@@ -4,9 +4,37 @@ const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
 
 async function loginWithGoogle() {
-  // Just open the auth tab — background.js catches the token and redirects to dashboard
-  const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=http://localhost:3000&prompt=select_account`;
-  chrome.tabs.create({ url: authUrl });
+  // Use official Chrome Identity flow for better MFA (double verification) support
+  const redirectUrl = chrome.identity.getRedirectURL();
+  const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+
+  chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (redirectedTo) => {
+    if (chrome.runtime.lastError) {
+      console.error('[Auth] Error:', chrome.runtime.lastError.message);
+      alert('Login failed: ' + chrome.runtime.lastError.message);
+      return;
+    }
+    if (!redirectedTo) return;
+
+    try {
+      const hashStr = redirectedTo.includes('#') ? redirectedTo.split('#')[1] : redirectedTo.split('?')[1];
+      const params = new URLSearchParams(hashStr);
+      const accessToken = params.get('access_token');
+
+      if (accessToken) {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY }
+        });
+        const user = await res.json();
+        await chrome.storage.local.set({ supabaseToken: accessToken, supabaseUser: user });
+        
+        // Refresh the popup to show logged in state
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('[Auth] Processing error:', err);
+    }
+  });
 }
 
 async function getCurrentUser() {
@@ -90,23 +118,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   const scoreElement = document.getElementById('score');
+  const marketEl = document.getElementById('market-value-popup');
 
-  // Sync the popup score with the EXACT background analysis
-  const { lastAnalysis } = await chrome.storage.local.get('lastAnalysis');
+  // Sync the popup with the EXACT current site data
+  const { currentSiteStats, lastAnalysis } = await chrome.storage.local.get(['currentSiteStats', 'lastAnalysis']);
   
-  if (lastAnalysis) {
-    let score = lastAnalysis.score !== undefined 
-      ? lastAnalysis.score 
-      : Math.min(lastAnalysis.cookieCount * 5, 100);
-    
-    scoreElement.innerText = score;
-    
-    if (score > 70) scoreElement.style.color = '#ff3333';
-    else if (score > 30) scoreElement.style.color = '#ffaa00';
+  const riskScore = currentSiteStats?.riskScore || lastAnalysis?.riskScore || 0;
+  const marketVal = currentSiteStats?.marketValue || lastAnalysis?.marketValue || 0;
+
+  if (scoreElement) {
+    scoreElement.innerText = riskScore;
+    if (riskScore > 70) scoreElement.style.color = '#ff3333';
+    else if (riskScore > 30) scoreElement.style.color = '#ffaa00';
     else scoreElement.style.color = '#00ff88';
-  } else {
-    scoreElement.innerText = '--';
-    scoreElement.style.color = '#555';
+  }
+
+  if (marketEl) {
+    marketEl.innerText = `$${Number(marketVal).toFixed(2)}`;
   }
 
   // Shadow Shield Toggle Logic
@@ -220,12 +248,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sync Market Value display
   const valueDisplay = document.getElementById('market-value-popup');
   if (valueDisplay) {
-    if (lastAnalysis && lastAnalysis.marketValue !== undefined) {
-      valueDisplay.innerText = `$${lastAnalysis.marketValue}`;
-    } else {
-      // Fallback calculation for popup
-      const val = (lastAnalysis ? (lastAnalysis.trackersFound * 0.12 + lastAnalysis.cookieCount * 0.05) : 0);
-      valueDisplay.innerText = `$${val.toFixed(2)}`;
-    }
+    const trackers = parseFloat(lastAnalysis?.trackersFound) || 0;
+    const cookies = parseFloat(lastAnalysis?.cookieCount) || 0;
+    const val = trackers * 0.12 + cookies * 0.05;
+    valueDisplay.innerText = `$${val.toFixed(2)}`;
   }
 });

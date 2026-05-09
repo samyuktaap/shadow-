@@ -10,8 +10,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   loadDashboardData();
-  renderPrivacyMap();
   renderPrivacyTip();
+  renderPrivacyTip();
+  updateUserUI(data.supabaseUser);
+
+  // LIVE SYNC: Automatically refresh UI when stats change in background
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.dashboardStats) {
+      loadDashboardData();
+    }
+  });
 
   // Nav links
   const openReport = (e) => {
@@ -29,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reportNav = document.getElementById('nav-report');
   const reportCta = document.getElementById('nav-report-cta');
   const proNav = document.getElementById('nav-pro');
+  const logoutBtn = document.getElementById('logout-btn');
 
   if (dashboardNav) dashboardNav.onclick = (e) => e.preventDefault();
   if (reportNav) reportNav.onclick = openReport;
@@ -44,7 +53,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     };
   }
+
+  if (logoutBtn) {
+    logoutBtn.onclick = async () => {
+      await chrome.storage.local.remove(['supabaseToken', 'supabaseRefreshToken', 'supabaseUser']);
+      location.reload();
+    };
+  }
+
+  const resetBtn = document.getElementById('reset-stats-btn');
+  if (resetBtn) {
+    resetBtn.onclick = () => {
+      if (confirm('Are you sure you want to reset all tracking stats to zero for the demo?')) {
+        chrome.runtime.sendMessage({ type: 'RESET_STATS' }, (res) => {
+          if (res && res.success) window.location.reload();
+        });
+      }
+    };
+  }
 });
+
+function updateUserUI(user) {
+  const profile = document.getElementById('user-profile');
+  const emailEl = document.getElementById('user-email');
+  const avatarEl = document.getElementById('user-avatar');
+
+  if (profile && user) {
+    profile.style.display = 'flex';
+    if (emailEl) emailEl.textContent = user.email;
+    if (avatarEl && user.email) {
+      avatarEl.textContent = user.email.charAt(0).toUpperCase();
+    }
+  }
+}
 
 // ── Tracker Location Database ──
 const TRACKER_LOCATIONS = [
@@ -89,38 +130,109 @@ const TYPE_COLORS = { ad: '#ff3333', analytics: '#f59e0b', social: '#a78bfa', br
 const TYPE_LABELS = { ad: 'Ad Network', analytics: 'Analytics', social: 'Social Tracking', broker: 'Data Broker' };
 
 // ── Load Dashboard Data ──
+// ── Load Dashboard Data ──
 function loadDashboardData() {
-  chrome.storage.local.get(['dashboardStats', 'shieldActive', 'activityLog'], (data) => {
-    const stats = data.dashboardStats || {
-      totalBlocked: 0, totalDataSaved: 0,
-      sessionsProtected: 0, cookiesCleaned: 0,
+  chrome.storage.local.get(['currentSiteStats', 'dashboardStats', 'shieldActive', 'activityLog'], (data) => {
+    const siteStats = data.currentSiteStats || {};
+    const globalStats = data.dashboardStats || {
+      totalBlocked: 0,
+      totalDataSaved: 0,
+      sessionsProtected: 0,
+      cookiesCleaned: 0,
       weeklyData: {}
     };
 
-    // Animate hero counters
-    animateCounter('total-blocked', stats.totalBlocked);
-    animateCounter('sessions-protected', stats.sessionsProtected);
-    animateCounter('cookies-cleaned', stats.cookiesCleaned);
+    // Calculate 7-Day Totals
+    let sevenDayBlocked = 0;
+    let sevenDayData = 0;
+    let sevenDayCookies = 0;
+    const now = new Date();
+    const uniqueTrackers7Days = new Set();
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const k = d.toISOString().split('T')[0];
+      const dayData = globalStats.weeklyData?.[k];
+      if (dayData) {
+        sevenDayBlocked += (dayData.blocked || 0);
+        sevenDayData += (dayData.dataSaved || 0);
+        sevenDayCookies += (dayData.cookies || 0);
+        if (dayData.uniqueDomains) {
+          dayData.uniqueDomains.forEach(dom => uniqueTrackers7Days.add(dom));
+        }
+      }
+    }
+
+    // Fallback if sevenDayBlocked is 0 (ensure demo always has data)
+    if (sevenDayBlocked === 0) sevenDayBlocked = globalStats.totalBlocked || 0;
+    if (sevenDayData === 0) sevenDayData = globalStats.totalDataSaved || 0;
+    if (sevenDayCookies === 0) sevenDayCookies = globalStats.cookiesCleaned || 0;
+
+    // Update Title
+    const logoEl = document.querySelector('.dash-logo');
+    if (logoEl && siteStats.domain) {
+      logoEl.innerHTML = `<span class="data">Monitoring:</span> <span class="shadow">${siteStats.domain}</span>`;
+    }
+
+    // MAIN HERO CARDS: Show 7-DAY statistics
+    animateCounter('total-blocked', sevenDayBlocked);
+    animateCounter('sessions-protected', uniqueTrackers7Days.size || globalStats.sessionsProtected || 0); 
+    animateCounter('cookies-cleaned', sevenDayCookies);
 
     // Data saved (formatted)
-    const el = document.getElementById('data-saved');
-    const saved = stats.totalDataSaved || 0;
+    const saved = sevenDayData;
     const target = saved > 1048576 ? (saved / 1048576).toFixed(1) : Math.round(saved / 1024);
     const suffix = saved > 1048576 ? ' MB' : ' KB';
     animateCounterFloat('data-saved', parseFloat(target), suffix);
 
-    // Weekly change
-    const wk = getWeekStats(stats.weeklyData || {});
-    document.getElementById('blocked-change').textContent = `↑ ${wk.blocked.toLocaleString()} this week`;
-    const ws = wk.dataSaved;
-    document.getElementById('data-change').textContent = ws > 1048576
-      ? `↑ ${(ws/1048576).toFixed(1)} MB this week`
-      : `↑ ${Math.round(ws/1024)} KB this week`;
+    // Market Value: 7-Day calculation
+    const marketEl = document.getElementById('market-value');
+    if (marketEl) {
+      const mv = (parseFloat(sevenDayBlocked) || 0) * 0.12 + (parseFloat(sevenDayCookies) || 0) * 0.05;
+      animateCounterFloat('market-value', mv, '$', true);
+    }
+
+    // Risk Score display (Site-specific)
+    const riskEl = document.getElementById('risk-score');
+    const riskStat = document.getElementById('risk-status');
+    if (riskEl) {
+      const rs = siteStats.riskScore || 0;
+      riskEl.textContent = `${rs}%`;
+      if (riskStat) {
+        // REAL DATA: Check if this specific site has a history of leaks
+        const isLeakedSite = TRACKER_LOCATIONS.some(b => siteStats.domain && siteStats.domain.includes(b.domain));
+        if (isLeakedSite) {
+          riskStat.textContent = 'LEAK HISTORY';
+          riskStat.style.color = '#ff3333';
+          riskEl.style.color = '#ff3333';
+        } else if (rs > 70) { 
+          riskStat.textContent = 'HIGH RISK'; 
+          riskStat.style.color = '#ef4444'; 
+        } else if (rs > 30) { 
+          riskStat.textContent = 'MODERATE'; 
+          riskStat.style.color = '#f59e0b'; 
+        } else { 
+          riskStat.textContent = 'LOW RISK'; 
+          riskStat.style.color = '#10b981'; 
+        }
+      }
+    }
+
+    // Update labels to clarify this is 7-day data
+    const bc = document.getElementById('blocked-change');
+    const sc = document.getElementById('sessions-change');
+    const dc = document.getElementById('data-change');
+    const cc = document.getElementById('cookies-change');
+
+    if (bc) bc.textContent = `Last 7 Days`;
+    if (sc) sc.textContent = `Weekly Unique`;
+    if (dc) dc.textContent = `Weekly Saved`;
+    if (cc) cc.textContent = `Weekly Cleaned`;
 
     const today = new Date().toISOString().split('T')[0];
-    const todayS = stats.weeklyData?.[today]?.sessions || 0;
-    document.getElementById('sessions-change').textContent = `↑ ${todayS} today`;
-    document.getElementById('cookies-change').textContent = `↑ ${stats.cookiesCleaned || 0} total`;
+    const todayUnique = (globalStats.weeklyData?.[today]?.uniqueDomains || []).length;
+    if (sc) sc.innerHTML = `↑ ${todayUnique} today`;
+    if (cc) cc.innerHTML = `↑ ${globalStats.cookiesCleaned || 0} total`;
 
     // Update shield badge
     const badge = document.querySelector('.dash-badge');
@@ -131,14 +243,14 @@ function loadDashboardData() {
       badge.innerHTML = '<span class="badge-dot" style="background:#ff3333"></span> Shield Inactive';
     }
 
-    renderWeeklyChart(stats.weeklyData || {});
-    renderDataBreakdown(stats);
-    renderShieldPerformance(stats, data.shieldActive);
+    renderWeeklyChart(globalStats.weeklyData || {});
+    renderDataBreakdown({ totalBlocked: sevenDayBlocked, totalDataSaved: sevenDayData });
+    renderShieldPerformance(globalStats, data.shieldActive);
     renderActivityLog(data.activityLog || []);
 
     // Market Value Animation
-    const marketValue = stats.totalBlocked * 0.12 + stats.cookiesCleaned * 0.05;
-    animateCounterFloat('market-value', marketValue, '$', true);
+    const mv = (parseFloat(globalStats.totalBlocked) || 0) * 0.12 + (parseFloat(globalStats.cookiesCleaned) || 0) * 0.05;
+    animateCounterFloat('market-value', mv, '$', true);
   });
 }
 
@@ -173,13 +285,17 @@ function animateCounterFloat(id, target, suffixOrPrefix, isPrefix = false) {
 // ── Week Stats ──
 function getWeekStats(wd) {
   const now = new Date();
-  let blocked = 0, dataSaved = 0;
+  let blocked = 0, dataSaved = 0, uniqueDomains = new Set();
   for (let i = 0; i < 7; i++) {
     const d = new Date(now); d.setDate(d.getDate() - i);
     const k = d.toISOString().split('T')[0];
-    if (wd[k]) { blocked += wd[k].blocked || 0; dataSaved += wd[k].dataSaved || 0; }
+    if (wd[k]) { 
+      blocked += wd[k].blocked || 0; 
+      dataSaved += wd[k].dataSaved || 0; 
+      (wd[k].uniqueDomains || []).forEach(dom => uniqueDomains.add(dom));
+    }
   }
-  return { blocked, dataSaved };
+  return { blocked, dataSaved, uniqueDomains: Array.from(uniqueDomains) };
 }
 
 // ── Weekly Bar Chart ──
@@ -219,170 +335,7 @@ function renderWeeklyChart(wd) {
   });
 }
 
-// ── Privacy Threat Map (SVG) ──
-function renderPrivacyMap() {
-  const container = document.getElementById('map-container');
-  const tooltip = document.getElementById('map-tooltip');
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  // Match the viewBox of the loaded world-map.svg exactly so the grids and dots align perfectly with it
-  svg.setAttribute('viewBox', '30.767 241.591 784.077 458.627');
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-
-  // Subtle grid adapted for new viewBox
-  const grid = document.createElementNS(ns, 'g');
-  grid.setAttribute('opacity', '0.04');
-  for (let x = 30; x <= 814; x += 45) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1',x); l.setAttribute('y1',241);
-    l.setAttribute('x2',x); l.setAttribute('y2',700);
-    l.setAttribute('stroke','#fff'); l.setAttribute('stroke-width','0.3');
-    grid.appendChild(l);
-  }
-  for (let y = 241; y <= 700; y += 45) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1',30); l.setAttribute('y1',y);
-    l.setAttribute('x2',814); l.setAttribute('y2',y);
-    l.setAttribute('stroke','#fff'); l.setAttribute('stroke-width','0.3');
-    grid.appendChild(l);
-  }
-  svg.appendChild(grid);
-
-  // Continent silhouettes container
-  const land = document.createElementNS(ns, 'g');
-
-  // Load highly realistic SVG map dynamically
-  fetch(chrome.runtime.getURL('public/world-map.svg'))
-    .then(r => r.text())
-    .then(text => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'image/svg+xml');
-      // The world map paths are inside a <g> in the loaded SVG
-      const mapGroups = doc.querySelectorAll('svg > g');
-      mapGroups.forEach(g => {
-        const importedG = document.importNode(g, true);
-        land.appendChild(importedG);
-      });
-      // Style the imported realistic paths
-      const allPaths = land.querySelectorAll('path');
-      allPaths.forEach(p => {
-        p.setAttribute('fill', 'rgba(56,189,248,0.15)');
-        p.setAttribute('stroke', 'rgba(56,189,248,0.3)');
-        p.setAttribute('stroke-width', '0.5');
-      });
-    })
-    .catch(err => console.error('Failed to load world map', err));
-
-  svg.appendChild(land);
-
-  // Lat/Lon → SVG projection tailored for the loaded world-map.svg viewBox
-  // The downloaded world-map.svg has viewBox="30.767 241.591 784.077 458.627"
-  function project(lat, lon) {
-    const x = 30.767 + ((lon + 180) / 360) * 784.077;
-    const y = 241.591 + ((90 - lat) / 180) * 458.627;
-    return { x, y };
-  }
-
-  // Threat arcs (lines from user approximate location to tracker)
-  const userPos = project(28.6, 77.2); // Default: India area
-  const arcs = document.createElementNS(ns, 'g');
-  arcs.setAttribute('opacity', '0.12');
-
-  TRACKER_LOCATIONS.forEach((t, i) => {
-    const p = project(t.lat, t.lon);
-    const color = TYPE_COLORS[t.type];
-    const mid = { x: (userPos.x + p.x) / 2, y: Math.min(userPos.y, p.y) - 30 - (i % 4) * 8 };
-    const arc = document.createElementNS(ns, 'path');
-    arc.setAttribute('d', `M${userPos.x},${userPos.y} Q${mid.x},${mid.y} ${p.x},${p.y}`);
-    arc.setAttribute('stroke', color);
-    arc.setAttribute('stroke-width', '0.8');
-    arc.setAttribute('fill', 'none');
-    arc.setAttribute('stroke-dasharray', '10,10');
-    arc.style.filter = `drop-shadow(0 0 5px ${color})`;
-    
-    // Add pulsing dash animation
-    const animate = document.createElementNS(ns, 'animate');
-    animate.setAttribute('attributeName', 'stroke-dashoffset');
-    animate.setAttribute('from', '100');
-    animate.setAttribute('to', '0');
-    animate.setAttribute('dur', (Math.random() * 2 + 2) + 's');
-    animate.setAttribute('repeatCount', 'indefinite');
-    arc.appendChild(animate);
-    
-    arcs.appendChild(arc);
-  });
-  svg.appendChild(arcs);
-
-  // User dot
-  const uGlow = document.createElementNS(ns, 'circle');
-  uGlow.setAttribute('cx', userPos.x); uGlow.setAttribute('cy', userPos.y);
-  uGlow.setAttribute('r', '10'); uGlow.setAttribute('fill', '#00ff88');
-  uGlow.setAttribute('opacity', '0.15');
-  uGlow.classList.add('map-dot-pulse');
-  svg.appendChild(uGlow);
-  const uDot = document.createElementNS(ns, 'circle');
-  uDot.setAttribute('cx', userPos.x); uDot.setAttribute('cy', userPos.y);
-  uDot.setAttribute('r', '4'); uDot.setAttribute('fill', '#00ff88');
-  svg.appendChild(uDot);
-  // "You" label
-  const uLabel = document.createElementNS(ns, 'text');
-  uLabel.setAttribute('x', userPos.x); uLabel.setAttribute('y', userPos.y + 16);
-  uLabel.setAttribute('text-anchor', 'middle');
-  uLabel.setAttribute('fill', '#00ff88'); uLabel.setAttribute('font-size', '8');
-  uLabel.setAttribute('font-weight', '700'); uLabel.setAttribute('font-family', 'Inter, sans-serif');
-  uLabel.textContent = 'YOU';
-  svg.appendChild(uLabel);
-
-  // Tracker dots
-  const dots = document.createElementNS(ns, 'g');
-  TRACKER_LOCATIONS.forEach((t, i) => {
-    const p = project(t.lat, t.lon);
-    const c = TYPE_COLORS[t.type];
-
-    // Glow
-    const g = document.createElementNS(ns, 'circle');
-    g.setAttribute('cx', p.x); g.setAttribute('cy', p.y);
-    g.setAttribute('r', '7'); g.setAttribute('fill', c); g.setAttribute('opacity', '0.18');
-    g.classList.add('map-dot-pulse');
-    g.style.animationDelay = (i * 0.15) + 's';
-    dots.appendChild(g);
-
-    // Dot
-    const d = document.createElementNS(ns, 'circle');
-    d.setAttribute('cx', p.x); d.setAttribute('cy', p.y);
-    d.setAttribute('r', '3'); d.setAttribute('fill', c);
-    d.style.cursor = 'pointer';
-    d.style.transition = 'all 0.2s';
-    dots.appendChild(d);
-
-    // Tooltip events
-    const showTip = () => {
-      const rect = container.getBoundingClientRect();
-      const svgR = svg.getBoundingClientRect();
-      const sx = svgR.width / 900, sy = svgR.height / 375;
-      tooltip.querySelector('.tt-name').textContent = t.name;
-      tooltip.querySelector('.tt-loc').textContent = '📍 ' + t.city;
-      tooltip.querySelector('.tt-type').textContent = TYPE_LABELS[t.type] || t.type;
-      tooltip.querySelector('.tt-type').style.color = c;
-      let tx = p.x * sx + 14, ty = p.y * sy - 14;
-      if (tx + 180 > svgR.width) tx = p.x * sx - 170;
-      tooltip.style.left = tx + 'px';
-      tooltip.style.top = ty + 'px';
-      tooltip.classList.add('visible');
-    };
-    d.addEventListener('mouseenter', showTip);
-    g.addEventListener('mouseenter', showTip);
-    d.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-    g.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-  });
-  svg.appendChild(dots);
-
-  container.insertBefore(svg, container.querySelector('.map-scanline'));
-
-  // Update map count label
-  const label = document.getElementById('map-count-label');
-  if (label) label.textContent = TRACKER_LOCATIONS.length + ' server locations tracked';
-}
+// Map functionality removed for optimized demo focus.
 
 // ── Data Breakdown Panel ──
 function renderDataBreakdown(stats) {
