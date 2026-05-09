@@ -292,6 +292,23 @@
     }
     @keyframes scan { from { left: -100%; } to { left: 100%; } }
 
+    /* Map Data Pipe Flow Animation */
+    @keyframes dash-flow {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    .tracker-pipe {
+      filter: drop-shadow(0 0 6px rgba(255, 51, 51, 0.8));
+    }
+    .user-pulse {
+      animation: user-glow 2s infinite alternate;
+    }
+    @keyframes user-glow {
+      from { filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.5)); }
+      to { filter: drop-shadow(0 0 20px rgba(0, 255, 136, 1)); }
+    }
+
     /* Map dots */
     @keyframes pulse-dot {
       0%,100% { opacity: 0.9; r: 3.5; }
@@ -504,6 +521,7 @@
           <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
           <a href="#" id="nav-whatif">What-If</a>
           <a href="#" id="nav-report">Full Report</a>
+          <a href="#" id="nav-history">History</a>
         </div>
         <div class="user-profile" id="user-profile" style="display: none; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
           <div id="user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--red); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: white;">U</div>

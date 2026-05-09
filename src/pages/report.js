@@ -7,6 +7,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  // ── Nav links ──
+  const navigateTo = (page) => {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+      window.location.href = chrome.runtime.getURL(`src/pages/${page}.html`);
+    } else {
+      window.location.href = `${page}.html`;
+    }
+  };
+
+  const dashboardNav = document.getElementById('nav-dashboard');
+  const proNav = document.getElementById('nav-pro');
+  const whatifNav = document.getElementById('nav-whatif');
+  const historyNav = document.getElementById('nav-history');
+
+  if (dashboardNav) dashboardNav.onclick = (e) => { e.preventDefault(); navigateTo('dashboard'); };
+  if (proNav) proNav.onclick = (e) => { e.preventDefault(); navigateTo('pro'); };
+  if (whatifNav) whatifNav.onclick = (e) => { e.preventDefault(); navigateTo('whatif'); };
+  if (historyNav) historyNav.onclick = (e) => { e.preventDefault(); navigateTo('history'); };
+
+
   // Load data from chrome storage
   chrome.storage.local.get(['lastAnalysis', 'shieldActive'], (data) => {
     if (data.lastAnalysis) {

@@ -100,9 +100,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dashNav = document.getElementById('nav-dashboard');
   const proNav = document.getElementById('nav-pro');
   const reportNav = document.getElementById('nav-report');
+  const historyNav = document.getElementById('nav-history');
   if (dashNav) dashNav.onclick = (e) => { e.preventDefault(); navigateTo('dashboard'); };
   if (proNav) proNav.onclick = (e) => { e.preventDefault(); navigateTo('pro'); };
   if (reportNav) reportNav.onclick = (e) => { e.preventDefault(); navigateTo('report'); };
+  if (historyNav) historyNav.onclick = (e) => { e.preventDefault(); navigateTo('history'); };
 
   // Load real data from extension storage
   const isExt = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;

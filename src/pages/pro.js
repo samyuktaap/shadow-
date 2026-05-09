@@ -24,11 +24,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Navigation
   document.getElementById('nav-dash').onclick = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/dashboard.html') });
+    if (isExt) chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/dashboard.html') });
   };
   document.getElementById('nav-report').onclick = (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
+    if (isExt) chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/report.html') });
+  };
+  document.getElementById('nav-whatif').onclick = (e) => {
+    e.preventDefault();
+    if (isExt) chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/whatif.html') });
+  };
+  document.getElementById('nav-history').onclick = (e) => {
+    e.preventDefault();
+    if (isExt) chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/history.html') });
   };
 });
 

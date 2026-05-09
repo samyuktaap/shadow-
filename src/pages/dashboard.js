@@ -18,11 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reportNav = document.getElementById('nav-report');
   const proNav = document.getElementById('nav-pro');
   const whatifNav = document.getElementById('nav-whatif');
+  const historyNav = document.getElementById('nav-history');
 
   if (dashboardNav) dashboardNav.onclick = (e) => { e.preventDefault(); navigateTo('dashboard'); };
   if (reportNav) reportNav.onclick = (e) => { e.preventDefault(); navigateTo('report'); };
   if (proNav) proNav.onclick = (e) => { e.preventDefault(); navigateTo('pro'); };
   if (whatifNav) whatifNav.onclick = (e) => { e.preventDefault(); navigateTo('whatif'); };
+  if (historyNav) historyNav.onclick = (e) => { e.preventDefault(); navigateTo('history'); };
 
   // Bulletproof context check: Allow dashboard to run even as a local file for demos
   const isExt = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
@@ -88,17 +90,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 function handleLiveUpdate(data) {
   // 1. Update Hero Counters Instantly
   if (data.blockedCount) {
-    const el = document.getElementById('total-blocked');
-    const current = parseInt(el.innerText.replace(/,/g, '')) || 0;
-    animateCounter('total-blocked', current + data.blockedCount);
-    
     // Pulse animation for network activity
     const pulse = document.getElementById('network-pulse');
     if (pulse) {
       pulse.style.transform = 'scale(1.2)';
       setTimeout(() => pulse.style.transform = 'scale(1)', 200);
     }
+
+    // Refresh all counters to reflect new global lifetime stats
+    loadDashboardData();
   }
+
 
   // 2. Update Intelligence Panel
   updateIntelligencePanel(data);
@@ -111,41 +113,29 @@ function handleLiveUpdate(data) {
 
 function updateIntelligencePanel(data) {
   const domain = data.site || 'active site';
-  const stats = data.stats || {};
   
   // Update Domain Name
   const nameEl = document.getElementById('active-domain-name');
   if (nameEl) nameEl.textContent = domain.toUpperCase();
   
-  // Calculate Aggression Score (Local calculation for zero-latency)
-  // We use TelemetryProcessor if available, otherwise fallback to simple math
-  const trackersCaught = stats.totalBlocked || 0;
-  const score = Math.min(100, (data.blockedCount || 0) * 10 + (trackersCaught % 50));
+  // Aggression Spike logic: Catching a tracker spikes the score briefly
+  const spikeScore = Math.min(100, (data.blockedCount || 0) * 15 + 40);
   
   const scoreEl = document.getElementById('aggression-score-val');
   const barEl = document.getElementById('aggression-bar');
-  if (scoreEl) scoreEl.textContent = score;
-  if (barEl) barEl.style.width = `${score}%`;
   
-  // Threat Level
-  const levelEl = document.getElementById('threat-level-val');
-  const detailsEl = document.getElementById('threat-details');
-  
-  if (score > 75) {
-    if (levelEl) { levelEl.textContent = 'CRITICAL'; levelEl.style.color = 'var(--red)'; }
-    if (detailsEl) detailsEl.textContent = 'Aggressive tracking & data harvesting detected.';
-  } else if (score > 30) {
-    if (levelEl) { levelEl.textContent = 'ELEVATED'; levelEl.style.color = 'var(--amber)'; }
-    if (detailsEl) detailsEl.textContent = 'Active third-party monitoring in progress.';
-  } else {
-    if (levelEl) { levelEl.textContent = 'SECURE'; levelEl.style.color = 'var(--green)'; }
-    if (detailsEl) detailsEl.textContent = 'No malicious harvesting patterns found.';
+  if (scoreEl && data.blockedCount > 0) {
+    scoreEl.textContent = spikeScore;
+    barEl.style.width = `${spikeScore}%`;
+    barEl.style.background = spikeScore > 70 ? 'var(--red)' : 'var(--amber)';
+    
+    // Reset to analyzed baseline after the spike
+    setTimeout(() => {
+      loadDashboardData();
+    }, 2000);
   }
-
-  // Risk Score
-  const riskEl = document.getElementById('risk-score');
-  if (riskEl) riskEl.textContent = `${Math.min(99, 10 + (score / 2))}%`;
 }
+
 
 function addLiveFeedEntry(entry) {
   const logEl = document.getElementById('activity-log');
@@ -238,42 +228,37 @@ function loadDashboardData() {
       logoEl.innerHTML = `<span class="data">Monitoring:</span> <span class="shadow">${siteStats.domain}</span>`;
     }
 
-    // ── PRIMARY SITE-SPECIFIC STATS (The big numbers) ──
-    const siteTrackers = siteStats.trackersFound || 0;
-    const siteCookies = siteStats.cookieCount || 0;
-    const siteSessions = siteStats.domain ? 1 : 0;
-    const siteData = siteTrackers > 0 ? siteTrackers * 16000 : (siteCookies > 0 ? siteCookies * 4000 : 0);
-    
-    // Calculate Market Value (Site Specific)
-    const siteVal = siteTrackers * 0.12 + siteCookies * 0.05 + (siteSessions * 0.02);
+    // ── PRIMARY HERO STATS (Using Lifetime Global Totals for "Wow" Factor) ──
+    const lifetimeTrackers = stats.totalBlocked || 0;
+    const lifetimeCookies = stats.cookiesCleaned || 0;
+    const lifetimeSessions = stats.sessionsProtected || 0;
+    const lifetimeData = stats.totalDataSaved || 0;
+    const lifetimeMarketVal = (lifetimeTrackers * 0.12) + (lifetimeCookies * 0.05) + (lifetimeSessions * 0.02);
 
-    // If zero, show "0" with a "Live" status dot
-    if (siteTrackers === 0 && siteStats.domain) {
-      document.getElementById('total-blocked').innerHTML = '0<div style="font-size: 10px; color: var(--sub); margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 5px;"><span class="badge-dot" style="width:5px; height:5px;"></span>MONITORING LIVE</div>';
+    // Update Big Numbers (Lifetime Impact)
+    animateCounter('total-blocked', lifetimeTrackers);
+    animateCounter('sessions-protected', lifetimeSessions);
+    animateCounter('cookies-cleaned', lifetimeCookies);
+
+    // Data saved (Lifetime)
+    if (lifetimeData === 0) {
+      document.getElementById('data-saved').innerHTML = '0<span style="font-size: 16px; color: var(--sub);"> KB</span>';
     } else {
-      animateCounter('total-blocked', siteTrackers);
-    }
-
-    animateCounter('sessions-protected', siteSessions);
-    animateCounter('cookies-cleaned', siteCookies);
-
-    // Data saved (Site Specific)
-    if (siteData === 0 && siteStats.domain) {
-      document.getElementById('data-saved').innerHTML = '0<span style="font-size: 16px; color: var(--sub);"> KB</span><div style="font-size: 10px; color: var(--sub); margin-top: 4px;">ANALYZING PAYLOADS</div>';
-    } else {
-      const target = siteData > 1048576 ? (siteData / 1048576).toFixed(1) : Math.round(siteData / 1024);
-      const suffix = siteData > 1048576 ? ' MB' : ' KB';
+      const target = lifetimeData > 1048576 ? (lifetimeData / 1048576).toFixed(1) : Math.round(lifetimeData / 1024);
+      const suffix = lifetimeData > 1048576 ? ' MB' : ' KB';
       animateCounterFloat('data-saved', parseFloat(target), suffix);
     }
 
-    // Market Value (Site Specific)
-    animateCounterFloat('market-value', siteVal, '$', true);
+    // Market Value (Lifetime Global Impact)
+    animateCounterFloat('market-value', lifetimeMarketVal, '$', true);
+
 
     // Render Real Tracker Geo-Map
     renderPrivacyMap(stats.geoTrackers || []);
 
-    // ── Update Intelligence Panel (Initial Load) ──
-    const aggScore = Math.min(100, (siteTrackers * 8) + (siteCookies * 2));
+    // ── Update Intelligence Panel (Aggression Score) ──
+    // We use the analyzed risk score for high-fidelity accuracy
+    const aggScore = siteStats.score || 0;
     const scoreEl = document.getElementById('aggression-score-val');
     const barEl = document.getElementById('aggression-bar');
     const levelEl = document.getElementById('threat-level-val');
@@ -283,13 +268,17 @@ function loadDashboardData() {
     if (scoreEl) scoreEl.textContent = aggScore;
     if (barEl) barEl.style.width = `${aggScore}%`;
     
-    if (aggScore > 75) {
+    if (aggScore >= 75) {
       if (levelEl) { levelEl.textContent = 'CRITICAL'; levelEl.style.color = 'var(--red)'; }
-    } else if (aggScore > 30) {
+      barEl.style.background = 'var(--red)';
+    } else if (aggScore >= 40) {
       if (levelEl) { levelEl.textContent = 'ELEVATED'; levelEl.style.color = 'var(--amber)'; }
+      barEl.style.background = 'var(--amber)';
     } else {
       if (levelEl) { levelEl.textContent = 'SECURE'; levelEl.style.color = 'var(--green)'; }
+      barEl.style.background = 'var(--green)';
     }
+
     
     // ── Primary Market Value Flash Card ──
     animateCounterFloat('market-value', siteVal, '$', true);
@@ -620,42 +609,85 @@ async function renderPrivacyMap() {
 
   userMarker = L.circleMarker([userLat, userLon], {
     radius: 12, fillColor: '#00ff88', color: '#ffffff', weight: 3, fillOpacity: 1,
-    className: 'user-location-marker'
+    className: 'user-location-marker user-pulse' // Added glowing pulse
   }).addTo(leafletMap).bindTooltip(`<b>🟢 ${locationLabel}</b>`, { permanent: true, direction: 'top' });
 
-  // ── Render Trackers (Piping) ──
+// ── Render Trackers (Piping) ──
   const userPos = [userLat, userLon];
   
+  // Prevent unnecessary re-rendering and animation resets if tracker count hasn't changed
+  if (window.lastTrackerCount === finalTrackers.length && leafletMap) {
+    const label = document.getElementById('map-count-label');
+    if (label) label.textContent = isPassive ? `Passive Data: ${finalTrackers.length} locations resolved` : `${finalTrackers.length} active server locations`;
+    return;
+  }
+  window.lastTrackerCount = finalTrackers.length;
+
+  if (leafletMap) {
+    trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
+    trackerLayers = [];
+  }
+  
   finalTrackers.forEach((tracker) => {
-    if (!tracker.lat || !tracker.lon) return;
-    const trackerPos = [tracker.lat, tracker.lon];
-    const isHighRisk = tracker.domain.includes('facebook') || tracker.domain.includes('google') || tracker.domain.includes('doubleclick');
-    const markerColor = isHighRisk ? '#ff3333' : '#f59e0b';
+    try {
+      if (!tracker.lat || !tracker.lon) return;
+      
+      const tLat = Number(tracker.lat);
+      const tLon = Number(tracker.lon);
+      if (isNaN(tLat) || isNaN(tLon)) return;
 
-    // Data Receiver Point
-    const marker = L.circleMarker(trackerPos, {
-      radius: isHighRisk ? 10 : 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9,
-      className: 'tracker-marker'
-    }).addTo(leafletMap);
+      const trackerPos = [tLat, tLon];
+      const domainStr = tracker.domain || tracker.name || '';
+      const isHighRisk = domainStr.includes('facebook') || domainStr.includes('google') || domainStr.includes('doubleclick');
+      const markerColor = isHighRisk ? '#ff3333' : '#f59e0b';
 
-    marker.bindTooltip(`<b>🔴 DATA RECEIVER: ${tracker.name || tracker.domain}</b><br>📍 Location: ${tracker.city || 'Unknown'}<br>🌐 Destination IP: ${tracker.ip || 'Masked'}`);
-    trackerLayers.push(marker);
+      // Data Receiver Point
+      const marker = L.circleMarker(trackerPos, {
+        radius: isHighRisk ? 10 : 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9,
+        className: 'tracker-marker'
+      }).addTo(leafletMap);
 
-    // Path of Data Travel (The Piping)
-    const line = L.polyline([userPos, trackerPos], {
-      color: isHighRisk ? 'rgba(255,51,51,0.6)' : 'rgba(245,158,11,0.5)',
-      weight: 2, dashArray: '10, 15', opacity: 0.8
-    }).addTo(leafletMap);
-    
-    // Add arrow heads or flow animation to lines
-    line.on('add', () => {
-      const el = line.getElement();
-      if (el) el.style.strokeDashoffset = '1000';
-      if (el) el.style.animation = 'dash-flow 30s linear infinite';
-    });
-    
-    trackerLayers.push(line);
+      marker.bindTooltip(`<b>🔴 DATA RECEIVER: ${tracker.name || domainStr || 'Unknown Server'}</b><br>📍 Location: ${tracker.city || 'Unknown'}<br>🌐 Destination IP: ${tracker.ip || 'Masked'}`);
+      trackerLayers.push(marker);
+
+      // Path of Data Travel (The Piping)
+      const line = L.polyline([userPos, trackerPos], {
+        color: isHighRisk ? 'rgba(255,51,51,0.8)' : 'rgba(245,158,11,0.7)',
+        weight: 3, dashArray: '8, 12', opacity: 0.9,
+        className: 'tracker-pipe'
+      }).addTo(leafletMap);
+      
+      // Add arrow heads or flow animation to lines
+      line.on('add', () => {
+        const el = line.getElement();
+        if (el) {
+          el.style.strokeDasharray = '8, 12';
+          el.style.strokeDashoffset = '1000';
+          el.style.animation = 'dash-flow 15s linear infinite';
+        }
+      });
+      
+      trackerLayers.push(line);
+    } catch (e) {
+      console.error("[DataShadow] Error rendering tracker on map:", e, tracker);
+    }
   });
+
+  // Auto-fit bounds when new trackers appear so they are visible
+  setTimeout(() => {
+    try {
+      if (leafletMap && trackerLayers.length > 0) {
+        const markers = trackerLayers.filter(l => l instanceof L.CircleMarker);
+        if (userMarker) markers.push(userMarker);
+        if (markers.length > 0) {
+          const group = new L.featureGroup(markers);
+          leafletMap.flyToBounds(group.getBounds(), { padding: [80, 80], maxZoom: 6 });
+        }
+      }
+    } catch(e) {
+      console.error("[DataShadow] Error flying to bounds:", e);
+    }
+  }, 500);
 
   const label = document.getElementById('map-count-label');
   if (label) label.textContent = isPassive ? `Passive Data: ${finalTrackers.length} locations resolved` : `${finalTrackers.length} active server locations`;

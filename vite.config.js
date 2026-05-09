@@ -21,9 +21,8 @@ function copyExtensionFiles() {
 
       // Copy page JS files that aren't bundled
       const pagesDir = 'dist/src/pages';
-      if (fs.existsSync('src/pages/whatif.js')) {
-        fs.copyFileSync('src/pages/whatif.js', `${pagesDir}/whatif.js`);
-      }
+      if (fs.existsSync('src/pages/whatif.js')) fs.copyFileSync('src/pages/whatif.js', `${pagesDir}/whatif.js`);
+      if (fs.existsSync('src/pages/history.js')) fs.copyFileSync('src/pages/history.js', `${pagesDir}/history.js`);
 
       // Copy Leaflet library (CRITICAL for map)
       const libDir = 'dist/src/lib';
@@ -52,6 +51,7 @@ export default defineConfig({
         report: resolve(__dirname, 'src/pages/report.html'),
         popup: resolve(__dirname, 'src/pages/popup.html'),
         whatif: resolve(__dirname, 'src/pages/whatif.html'),
+        history: resolve(__dirname, 'src/pages/history.html'),
       },
     },
   },

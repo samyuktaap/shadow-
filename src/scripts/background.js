@@ -713,6 +713,9 @@ async function analyzeDomain(tabId, url) {
       currentSiteStats: analysisData 
     });
 
+    // Record Privacy History
+    await recordPrivacyHistory(analysisData);
+
     // NEW: Record session and blocks in global stats
     await recordSession(domain);
     if (shieldActive && trackersFound > 0) {
@@ -975,4 +978,36 @@ async function processTabAnalysis(tabId, url) {
   }
 
   analyzeDomain(tabId, url);
+}
+
+// ── Privacy Cache History System ──
+async function recordPrivacyHistory(data) {
+  const { privacyHistory = [] } = await getStorage('privacyHistory');
+  
+  const newEntry = {
+    site: data.domain,
+    privacyScore: data.score,
+    trackers: data.trackersFound,
+    permissions: data.detailedAnalysis && data.detailedAnalysis.permissions ? data.detailedAnalysis.permissions : [],
+    exposureLevel: data.riskLevel,
+    timestamp: Date.now()
+  };
+
+  // Check if we visited this site very recently (e.g., within 5 minutes) to avoid duplicates
+  const recentIndex = privacyHistory.findIndex(entry => 
+    entry.site === data.domain && (Date.now() - entry.timestamp < 5 * 60 * 1000)
+  );
+
+  let updatedHistory;
+  if (recentIndex !== -1) {
+    // Update existing recent entry
+    updatedHistory = [...privacyHistory];
+    updatedHistory[recentIndex] = newEntry;
+  } else {
+    // update entry if user revisits same site
+    const filteredHistory = privacyHistory.filter(entry => entry.site !== data.domain);
+    updatedHistory = [newEntry, ...filteredHistory].slice(0, 100); // limit to 100
+  }
+
+  await chrome.storage.local.set({ privacyHistory: updatedHistory });
 }

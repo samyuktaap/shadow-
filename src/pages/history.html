@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DataShadow — Privacy Cache History</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0a0a0a;
+      color: white;
+      min-height: 100vh;
+      padding: 30px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid #222;
+      padding-bottom: 20px;
+    }
+    .logo { font-size: 28px; font-weight: bold; color: #ff3333; }
+    .logo span { color: white; }
+    .subtitle { color: #888; font-size: 14px; margin-top: 4px; }
+
+    .dash-nav { display: flex; gap: 8px; margin-top: 15px; }
+    .dash-nav a {
+      color: #888; text-decoration: none;
+      font-size: 13px; font-weight: 500;
+      padding: 8px 18px; border-radius: 10px;
+      transition: all 0.2s; border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .dash-nav a:hover, .dash-nav a.active { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+    .pro-tag { display: inline-block; background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(56,189,248,0.2)); color: #a78bfa; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+
+    /* Layout */
+    .grid { display: grid; grid-template-columns: 1fr 300px; gap: 30px; }
+
+    /* Insights Section */
+    .insights-panel { background: #111; border-radius: 16px; padding: 20px; border: 1px solid #2a2a2a; margin-bottom: 25px; }
+    .insights-panel h2 { font-size: 16px; margin-bottom: 15px; color: #ccc; display: flex; align-items: center; gap: 8px; }
+    .insight-item { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; border-left: 3px solid #ff3333; }
+    
+    /* Controls */
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; justify-content: flex-end; }
+    .btn { background: #222; color: #fff; border: 1px solid #333; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+    .btn:hover { background: #333; border-color: #555; }
+    .btn.danger { color: #ff6666; border-color: #400; background: #200; }
+    .btn.danger:hover { background: #400; border-color: #ff3333; }
+
+    /* History List */
+    .history-list { display: flex; flex-direction: column; gap: 10px; }
+    .history-item { 
+      background: #1a1a1a; border-radius: 12px; padding: 15px; 
+      border: 1px solid #2a2a2a; display: flex; justify-content: space-between; align-items: center; 
+      cursor: pointer; transition: 0.2s;
+    }
+    .history-item:hover { background: #222; border-color: #444; }
+    
+    .site-info { display: flex; flex-direction: column; gap: 4px; }
+    .site-name { font-size: 16px; font-weight: bold; color: #eee; }
+    .site-time { font-size: 12px; color: #888; }
+    
+    .site-stats { display: flex; gap: 20px; align-items: center; }
+    .stat { display: flex; flex-direction: column; align-items: flex-end; }
+    .stat-val { font-size: 16px; font-weight: bold; }
+    .stat-label { font-size: 11px; color: #888; text-transform: uppercase; }
+    
+    .risk-high { color: #ff3333; }
+    .risk-med { color: #ffaa00; }
+    .risk-low { color: #00ff88; }
+
+    /* Timeline Chart Canvas */
+    .chart-container { background: #111; border-radius: 16px; padding: 20px; border: 1px solid #2a2a2a; margin-bottom: 25px; height: 250px; position: relative; }
+    canvas { width: 100%; height: 100%; }
+
+    /* Detail Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(5px); }
+    .modal { background: #1a1a1a; width: 400px; border-radius: 16px; padding: 25px; border: 1px solid #333; position: relative; }
+    .modal-close { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #888; cursor: pointer; font-size: 20px; }
+    .modal-close:hover { color: #fff; }
+    .modal h3 { margin-bottom: 5px; font-size: 20px; color: #fff; }
+    .modal .modal-time { font-size: 12px; color: #888; margin-bottom: 20px; }
+    .modal-row { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #2a2a2a; padding-bottom: 15px; }
+    .modal-label { color: #888; font-size: 13px; }
+    .modal-val { font-weight: bold; font-size: 14px; }
+    .modal-trend { font-size: 12px; color: #00ff88; margin-top: 10px; padding: 10px; background: rgba(0,255,136,0.1); border-radius: 8px; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="header" style="align-items: center;">
+    <div>
+      <div class="logo">Data<span>Shadow</span></div>
+      <div class="subtitle">Privacy Cache History</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 15px;">
+      <div class="dash-nav" style="margin-top: 0;">
+        <a href="#" id="nav-dashboard">Dashboard</a>
+        <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
+        <a href="#" id="nav-whatif">What-If</a>
+        <a href="#" id="nav-report">Full Report</a>
+        <a href="#" class="active" id="nav-history">History</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btn-export">📥 Export History</button>
+    <button class="btn danger" id="btn-clear">🗑️ Clear Cache</button>
+  </div>
+
+  <div class="grid">
+    <div class="main-col">
+      <div class="chart-container">
+        <canvas id="timelineChart"></canvas>
+      </div>
+
+      <h2 style="font-size: 18px; margin-bottom: 15px; color: #ccc;">Recent Scans</h2>
+      <div class="history-list" id="history-list">
+        <div style="color: #888; padding: 20px; text-align: center; background: #111; border-radius: 12px;">Loading history...</div>
+      </div>
+    </div>
+
+    <div class="side-col">
+      <div class="insights-panel">
+        <h2>💡 Smart Insights</h2>
+        <div id="insights-container">
+          <div style="color: #888; font-size: 13px;">Analyzing your privacy timeline...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detail-modal">
+    <div class="modal">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <h3 id="modal-site">Website</h3>
+      <div class="modal-time" id="modal-time">Last visited</div>
+      
+      <div class="modal-row">
+        <div class="modal-label">Privacy Score</div>
+        <div class="modal-val" id="modal-score">--</div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-label">Trackers Detected</div>
+        <div class="modal-val" id="modal-trackers">--</div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-label">Exposure Level</div>
+        <div class="modal-val" id="modal-exposure">--</div>
+      </div>
+      <div class="modal-row" style="border-bottom: none;">
+        <div class="modal-label">Sensors & Permissions</div>
+        <div class="modal-val" id="modal-permissions" style="font-weight: normal; color: #aaa; font-size: 12px; text-align: right; max-width: 200px;">--</div>
+      </div>
+
+      <div class="modal-trend" id="modal-trend">
+        Analyzing historical trend...
+      </div>
+      
+      <div style="margin-top: 20px; text-align: center;">
+        <button class="btn danger" id="btn-delete-entry">Delete Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="history.js"></script>
+</body>
+</html>
