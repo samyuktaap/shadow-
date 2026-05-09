@@ -19,8 +19,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   loadDashboardData();
-  renderPrivacyMap();
   renderPrivacyTip();
+
+  // Storage listener for real-time map updates
+  if (isExt) {
+    chrome.storage.onChanged.addListener((changes) => {
+      if (changes.realTimeTrackers) {
+        updateMapMarkers(changes.realTimeTrackers.newValue);
+      }
+      if (changes.dashboardStats) {
+        renderDataBreakdown(changes.dashboardStats.newValue);
+      }
+    });
+  }
 
   // Nav links
   const openReport = (e) => {
@@ -154,6 +165,10 @@ function loadDashboardData() {
     renderShieldPerformance(stats, res.shieldActive !== false);
     renderActivityLog(res.activityLog || []);
 
+    // Map Initialization
+    const { realTimeTrackers = [] } = await new Promise(r => chrome.storage.local.get('realTimeTrackers', r));
+    initInteractiveMap(realTimeTrackers);
+
     // Market Value Animation
     const marketValue = (stats.totalBlocked || 142) * 0.12 + (stats.cookiesCleaned || 24) * 0.05;
     animateCounterFloat('market-value', marketValue, '$', true);
@@ -245,168 +260,93 @@ function renderWeeklyChart(wd) {
 }
 
 // ── Privacy Threat Map (SVG) ──
-function renderPrivacyMap() {
+// ── Interactive Tracker Geo-Map (Leaflet) ──────────────────────────────────
+let MAP_INSTANCE = null;
+let USER_MARKER = null;
+let TRACKER_GROUP = null;
+let FLOW_GROUP = null;
+
+async function initInteractiveMap(trackers) {
   const container = document.getElementById('map-container');
-  const tooltip = document.getElementById('map-tooltip');
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  // Match the viewBox of the loaded world-map.svg exactly so the grids and dots align perfectly with it
-  svg.setAttribute('viewBox', '30.767 241.591 784.077 458.627');
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  if (!container || !window.L) return;
 
-  // Subtle grid adapted for new viewBox
-  const grid = document.createElementNS(ns, 'g');
-  grid.setAttribute('opacity', '0.04');
-  for (let x = 30; x <= 814; x += 45) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1',x); l.setAttribute('y1',241);
-    l.setAttribute('x2',x); l.setAttribute('y2',700);
-    l.setAttribute('stroke','#fff'); l.setAttribute('stroke-width','0.3');
-    grid.appendChild(l);
-  }
-  for (let y = 241; y <= 700; y += 45) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1',30); l.setAttribute('y1',y);
-    l.setAttribute('x2',814); l.setAttribute('y2',y);
-    l.setAttribute('stroke','#fff'); l.setAttribute('stroke-width','0.3');
-    grid.appendChild(l);
-  }
-  svg.appendChild(grid);
+  // 1. Initialize Map
+  if (!MAP_INSTANCE) {
+    MAP_INSTANCE = L.map('map-container', {
+      center: [20, 0],
+      zoom: 2,
+      zoomControl: false,
+      attributionControl: false
+    });
 
-  // Continent silhouettes container
-  const land = document.createElementNS(ns, 'g');
+    // Dark Premium Tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19
+    }).addTo(MAP_INSTANCE);
 
-  // Load highly realistic SVG map dynamically
-  fetch(chrome.runtime.getURL('public/world-map.svg'))
-    .then(r => r.text())
-    .then(text => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'image/svg+xml');
-      // The world map paths are inside a <g> in the loaded SVG
-      const mapGroups = doc.querySelectorAll('svg > g');
-      mapGroups.forEach(g => {
-        const importedG = document.importNode(g, true);
-        land.appendChild(importedG);
-      });
-      // Style the imported realistic paths
-      const allPaths = land.querySelectorAll('path');
-      allPaths.forEach(p => {
-        p.setAttribute('fill', 'rgba(56,189,248,0.15)');
-        p.setAttribute('stroke', 'rgba(56,189,248,0.3)');
-        p.setAttribute('stroke-width', '0.5');
-      });
-    })
-    .catch(err => console.error('Failed to load world map', err));
+    TRACKER_GROUP = L.layerGroup().addTo(MAP_INSTANCE);
+    FLOW_GROUP = L.layerGroup().addTo(MAP_INSTANCE);
 
-  svg.appendChild(land);
-
-  // Lat/Lon → SVG projection tailored for the loaded world-map.svg viewBox
-  // The downloaded world-map.svg has viewBox="30.767 241.591 784.077 458.627"
-  function project(lat, lon) {
-    const x = 30.767 + ((lon + 180) / 360) * 784.077;
-    const y = 241.591 + ((90 - lat) / 180) * 458.627;
-    return { x, y };
+    // 2. Resolve User Location
+    try {
+      const res = await fetch('http://ip-api.com/json');
+      const data = await res.json();
+      if (data.status === 'success') {
+        const icon = L.divIcon({
+          className: 'user-marker',
+          html: `<div style="width:12px;height:12px;background:#00ff88;border-radius:50%;box-shadow:0 0 15px #00ff88;border:2px solid #fff;"></div>`,
+          iconSize: [12, 12]
+        });
+        USER_MARKER = L.marker([data.lat, data.lon], { icon }).addTo(MAP_INSTANCE);
+        USER_MARKER.bindTooltip("<b>YOU</b><br>Secured Location", { permanent: true, direction: 'top', className: 'map-tooltip-custom' });
+        MAP_INSTANCE.setView([data.lat, data.lon], 3);
+      }
+    } catch(e) {
+      console.warn("User geo-lookup failed", e);
+    }
   }
 
-  // Threat arcs (lines from user approximate location to tracker)
-  const userPos = project(28.6, 77.2); // Default: India area
-  const arcs = document.createElementNS(ns, 'g');
-  arcs.setAttribute('opacity', '0.12');
+  updateMapMarkers(trackers);
+}
 
-  TRACKER_LOCATIONS.forEach((t, i) => {
-    const p = project(t.lat, t.lon);
-    const color = TYPE_COLORS[t.type];
-    const mid = { x: (userPos.x + p.x) / 2, y: Math.min(userPos.y, p.y) - 30 - (i % 4) * 8 };
-    const arc = document.createElementNS(ns, 'path');
-    arc.setAttribute('d', `M${userPos.x},${userPos.y} Q${mid.x},${mid.y} ${p.x},${p.y}`);
-    arc.setAttribute('stroke', color);
-    arc.setAttribute('stroke-width', '0.8');
-    arc.setAttribute('fill', 'none');
-    arc.setAttribute('stroke-dasharray', '10,10');
-    arc.style.filter = `drop-shadow(0 0 5px ${color})`;
-    
-    // Add pulsing dash animation
-    const animate = document.createElementNS(ns, 'animate');
-    animate.setAttribute('attributeName', 'stroke-dashoffset');
-    animate.setAttribute('from', '100');
-    animate.setAttribute('to', '0');
-    animate.setAttribute('dur', (Math.random() * 2 + 2) + 's');
-    animate.setAttribute('repeatCount', 'indefinite');
-    arc.appendChild(animate);
-    
-    arcs.appendChild(arc);
+function updateMapMarkers(trackers) {
+  if (!MAP_INSTANCE || !TRACKER_GROUP) return;
+
+  TRACKER_GROUP.clearLayers();
+  FLOW_GROUP.clearLayers();
+
+  const countLabel = document.getElementById('map-count-label');
+  if (countLabel) countLabel.textContent = `${trackers.length} trackers mapped globally`;
+
+  trackers.forEach((t, i) => {
+    // Add Marker
+    const color = i < 5 ? 'var(--red)' : 'var(--amber)';
+    const icon = L.divIcon({
+      className: 'tracker-marker',
+      html: `<div style="width:8px;height:8px;background:${color};border-radius:50%;box-shadow:0 0 10px ${color};"></div>`,
+      iconSize: [8, 8]
+    });
+
+    const m = L.marker([t.lat, t.lon], { icon }).addTo(TRACKER_GROUP);
+    m.bindTooltip(`
+      <div style="font-family:Inter,sans-serif;font-size:11px;color:#fff;background:#111;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
+        <strong style="color:${color}">${t.name}</strong><br>
+        📍 ${t.city}, ${t.country}<br>
+        <span style="font-size:9px;color:rgba(255,255,255,0.6);">IP: ${t.ip}</span>
+      </div>
+    `, { className: 'map-tooltip-dark', direction: 'top', offset: [0, -5] });
+
+    // Draw Flow Line
+    if (USER_MARKER) {
+      const userLatLng = USER_MARKER.getLatLng();
+      const line = L.polyline([userLatLng, [t.lat, t.lon]], {
+        color: color,
+        weight: 1,
+        opacity: 0.2,
+        dashArray: '5, 10'
+      }).addTo(FLOW_GROUP);
+    }
   });
-  svg.appendChild(arcs);
-
-  // User dot
-  const uGlow = document.createElementNS(ns, 'circle');
-  uGlow.setAttribute('cx', userPos.x); uGlow.setAttribute('cy', userPos.y);
-  uGlow.setAttribute('r', '10'); uGlow.setAttribute('fill', '#00ff88');
-  uGlow.setAttribute('opacity', '0.15');
-  uGlow.classList.add('map-dot-pulse');
-  svg.appendChild(uGlow);
-  const uDot = document.createElementNS(ns, 'circle');
-  uDot.setAttribute('cx', userPos.x); uDot.setAttribute('cy', userPos.y);
-  uDot.setAttribute('r', '4'); uDot.setAttribute('fill', '#00ff88');
-  svg.appendChild(uDot);
-  // "You" label
-  const uLabel = document.createElementNS(ns, 'text');
-  uLabel.setAttribute('x', userPos.x); uLabel.setAttribute('y', userPos.y + 16);
-  uLabel.setAttribute('text-anchor', 'middle');
-  uLabel.setAttribute('fill', '#00ff88'); uLabel.setAttribute('font-size', '8');
-  uLabel.setAttribute('font-weight', '700'); uLabel.setAttribute('font-family', 'Inter, sans-serif');
-  uLabel.textContent = 'YOU';
-  svg.appendChild(uLabel);
-
-  // Tracker dots
-  const dots = document.createElementNS(ns, 'g');
-  TRACKER_LOCATIONS.forEach((t, i) => {
-    const p = project(t.lat, t.lon);
-    const c = TYPE_COLORS[t.type];
-
-    // Glow
-    const g = document.createElementNS(ns, 'circle');
-    g.setAttribute('cx', p.x); g.setAttribute('cy', p.y);
-    g.setAttribute('r', '7'); g.setAttribute('fill', c); g.setAttribute('opacity', '0.18');
-    g.classList.add('map-dot-pulse');
-    g.style.animationDelay = (i * 0.15) + 's';
-    dots.appendChild(g);
-
-    // Dot
-    const d = document.createElementNS(ns, 'circle');
-    d.setAttribute('cx', p.x); d.setAttribute('cy', p.y);
-    d.setAttribute('r', '3'); d.setAttribute('fill', c);
-    d.style.cursor = 'pointer';
-    d.style.transition = 'all 0.2s';
-    dots.appendChild(d);
-
-    // Tooltip events
-    const showTip = () => {
-      const rect = container.getBoundingClientRect();
-      const svgR = svg.getBoundingClientRect();
-      const sx = svgR.width / 900, sy = svgR.height / 375;
-      tooltip.querySelector('.tt-name').textContent = t.name;
-      tooltip.querySelector('.tt-loc').textContent = '📍 ' + t.city;
-      tooltip.querySelector('.tt-type').textContent = TYPE_LABELS[t.type] || t.type;
-      tooltip.querySelector('.tt-type').style.color = c;
-      let tx = p.x * sx + 14, ty = p.y * sy - 14;
-      if (tx + 180 > svgR.width) tx = p.x * sx - 170;
-      tooltip.style.left = tx + 'px';
-      tooltip.style.top = ty + 'px';
-      tooltip.classList.add('visible');
-    };
-    d.addEventListener('mouseenter', showTip);
-    g.addEventListener('mouseenter', showTip);
-    d.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-    g.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-  });
-  svg.appendChild(dots);
-
-  container.insertBefore(svg, container.querySelector('.map-scanline'));
-
-  // Update map count label
-  const label = document.getElementById('map-count-label');
-  if (label) label.textContent = TRACKER_LOCATIONS.length + ' server locations tracked';
 }
 
 // ── Data Breakdown Panel ──

@@ -133,6 +133,79 @@ function todayKey() {
   return new Date().toISOString().split('T')[0];
 }
 
+// ── Geo-IP Stats ─────────────────────────────────────────────────────────────
+const GEO_CACHE = {}; // In-memory cache for the session
+
+async function trackRealTimeTracker(domain) {
+  if (!domain) return;
+  
+  // 1. Check Cache
+  const { trackerGeoCache = {} } = await getStorage('trackerGeoCache');
+  if (trackerGeoCache[domain] || GEO_CACHE[domain]) {
+    return trackerGeoCache[domain] || GEO_CACHE[domain];
+  }
+
+  // 2. Resolve via IP-API (Lightweight & Free)
+  try {
+    const res = await fetch(`http://ip-api.com/json/${domain}?fields=status,message,country,city,lat,lon,query`);
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      const trackerInfo = {
+        name: domain,
+        ip: data.query,
+        country: data.country,
+        city: data.city,
+        lat: data.lat,
+        lon: data.lon,
+        timestamp: Date.now()
+      };
+
+      // 3. Store in Storage & Local Cache
+      GEO_CACHE[domain] = trackerInfo;
+      trackerGeoCache[domain] = trackerInfo;
+      
+      const { realTimeTrackers = [] } = await getStorage('realTimeTrackers');
+      const updatedList = [trackerInfo, ...realTimeTrackers].slice(0, 50);
+      
+      await chrome.storage.local.set({ 
+        trackerGeoCache, 
+        realTimeTrackers: updatedList 
+      });
+      
+      console.log(`[DataShadow Geo] Mapped ${domain} to ${data.city}, ${data.country}`);
+      return trackerInfo;
+    }
+  } catch (err) {
+    console.error(`[DataShadow Geo] Failed to map ${domain}:`, err);
+  }
+  return null;
+}
+
+// Intercept Network Requests to detect trackers
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.type === 'main_frame') return; // Skip the site itself
+    
+    try {
+      const url = new URL(details.url);
+      const domain = url.hostname;
+      
+      // Basic heuristic: check if it's a known tracker or 3rd party
+      // For the demo, we use a simple check: is it different from the current tab?
+      chrome.tabs.get(details.tabId, (tab) => {
+        if (!tab || !tab.url) return;
+        const tabUrl = new URL(tab.url);
+        if (domain !== tabUrl.hostname && !domain.includes(tabUrl.hostname)) {
+          // It's a 3rd party request. Check if it's in our "Tracker List" or just track it.
+          trackRealTimeTracker(domain);
+        }
+      });
+    } catch(e) {}
+  },
+  { urls: ["<all_urls>"] }
+);
+
 // Record a block event (called when shield is on and trackers are detected)
 async function recordBlockEvent(count, domain) {
   if (count <= 0) return;
@@ -167,6 +240,9 @@ async function recordBlockEvent(count, domain) {
 
   // Keep last 100 activity entries
   const updatedLog = [...activityLog, newEntry].slice(-100);
+
+  // TRIGGER GEO LOOKUP FOR THE DOMAIN
+  trackRealTimeTracker(domain);
 
   await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
 }

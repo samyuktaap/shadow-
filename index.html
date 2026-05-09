@@ -7,6 +7,8 @@
   <meta name="description" content="See exactly how DataShadow protects your privacy — trackers blocked, data saved, and global threat map.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -495,14 +497,8 @@
             <span id="map-count-label">0 server locations</span>
           </div>
         </div>
-        <div class="map-container" id="map-container">
-          <div class="map-scanline"></div>
-          <div class="map-tooltip" id="map-tooltip">
-            <div class="tt-name"></div>
-            <div class="tt-loc"></div>
-            <div class="tt-type"></div>
-          </div>
-          <!-- SVG rendered by JS -->
+        <div class="map-container" id="map-container" style="background: #000;">
+          <!-- Leaflet Map Container -->
         </div>
         <div class="map-legend" style="padding: 0 28px 24px;">
           <span class="map-legend-label">Threat type:</span>
