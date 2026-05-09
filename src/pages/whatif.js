@@ -328,8 +328,8 @@ function drawRadar(before, after) {
   // Draw BEFORE polygon (red)
   drawPolygon(ctx, cx, cy, maxR, keys.map(k => before[k] / 100), startAngle, angleStep, numAxes, 'rgba(255,51,51,0.25)', 'rgba(255,51,51,0.8)', 2);
 
-  // Draw AFTER polygon (green)
-  drawPolygon(ctx, cx, cy, maxR, keys.map(k => after[k] / 100), startAngle, angleStep, numAxes, 'rgba(0,255,136,0.15)', 'rgba(0,255,136,0.8)', 2.5);
+  // Draw AFTER polygon (orange)
+  drawPolygon(ctx, cx, cy, maxR, keys.map(k => after[k] / 100), startAngle, angleStep, numAxes, 'rgba(255,136,0,0.15)', 'rgba(255,136,0,0.8)', 2.5);
 
   // Draw data points
   keys.forEach((k, i) => {
@@ -351,7 +351,7 @@ function drawRadar(before, after) {
     const ay = cy + Math.sin(angle) * maxR * (after[k] / 100);
     ctx.beginPath();
     ctx.arc(ax, ay, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#00ff88';
+    ctx.fillStyle = '#ff8800'; // Orange
     ctx.fill();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 1.5;
@@ -360,7 +360,7 @@ function drawRadar(before, after) {
     // Glow on after dot
     ctx.beginPath();
     ctx.arc(ax, ay, 10, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,255,136,0.15)';
+    ctx.fillStyle = 'rgba(255,136,0,0.15)';
     ctx.fill();
   });
 }
@@ -399,13 +399,13 @@ function updateScores(before, after) {
   // Update color of "after" box based on improvement
   const afterBox = document.querySelector('.score-box.after');
   if (afterScore < 25) {
-    afterBox.style.borderColor = 'rgba(0,255,136,0.5)';
-    afterBox.style.boxShadow = '0 0 30px rgba(0,255,136,0.1)';
+    afterBox.style.borderColor = 'rgba(255,136,0,0.5)';
+    afterBox.style.boxShadow = '0 0 30px rgba(255,136,0,0.1)';
   } else if (afterScore < 50) {
-    afterBox.style.borderColor = 'rgba(0,255,136,0.3)';
+    afterBox.style.borderColor = 'rgba(255,136,0,0.3)';
     afterBox.style.boxShadow = 'none';
   } else {
-    afterBox.style.borderColor = 'rgba(245,158,11,0.3)';
+    afterBox.style.borderColor = 'rgba(255,51,51,0.3)';
     afterBox.style.boxShadow = 'none';
   }
 }
