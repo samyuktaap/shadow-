@@ -1,8 +1,7 @@
 // DataShadow Background Service Worker — Local Stats Engine + Shield
+import { SUPABASE_CONFIG } from './config.js';
 
 // ── Auth: Catch Google OAuth redirect tokens ────────────────────────────────
-const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
 
 // Listen for ALL tab URL changes — catch the localhost redirect with tokens
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
@@ -17,8 +16,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if (accessToken) {
     try {
       // Fetch user info from Supabase
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        headers: { Authorization: `Bearer ${accessToken}`, apikey: SUPABASE_ANON_KEY }
+      const res = await fetch(`${SUPABASE_CONFIG.URL}/auth/v1/user`, {
+        headers: { Authorization: `Bearer ${accessToken}`, apikey: SUPABASE_CONFIG.ANON_KEY }
       });
       const user = await res.json();
 
@@ -56,11 +55,11 @@ async function syncStatsToSupabase() {
   try {
     // Upsert stats for this user
     // We use a table called 'user_stats' (assumed to exist in your Supabase)
-    await fetch(`${SUPABASE_URL}/rest/v1/user_stats`, {
+    await fetch(`${SUPABASE_CONFIG.URL}/rest/v1/user_stats`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseToken}`,
-        'apikey': SUPABASE_ANON_KEY,
+        'apikey': SUPABASE_CONFIG.ANON_KEY,
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates'
       },
@@ -81,10 +80,10 @@ async function syncStatsToSupabase() {
 async function pullStatsFromSupabase(userId, token) {
   try {
     console.log('[DataShadow Sync] Pulling stats from cloud...');
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_stats?user_id=eq.${userId}&select=stats`, {
+    const res = await fetch(`${SUPABASE_CONFIG.URL}/rest/v1/user_stats?user_id=eq.${userId}&select=stats`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'apikey': SUPABASE_ANON_KEY
+        'apikey': SUPABASE_CONFIG.ANON_KEY
       }
     });
     const data = await res.json();
@@ -134,17 +133,62 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
-// TRUE LIVE MONITOR: Listen for actual network blocks
-if (chrome.declarativeNetRequest.onRuleMatchedDebug) {
-  chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
-    console.log('[DataShadow Heartbeat] 🛡️ Network block matched:', info.request.url);
-    chrome.tabs.get(info.tabId, (tab) => {
-      if (tab && tab.url && tab.url.startsWith('http')) {
-        const domain = new URL(tab.url).hostname;
-        recordBlockEvent(1, domain);
-      }
-    });
-  });
+// ── REAL-TIME TRACKER INTERCEPTOR (High Fidelity) ────────────────────────────
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.type !== 'main_frame' && details.url.startsWith('http')) {
+      try {
+        const url = new URL(details.url);
+        const domain = url.hostname;
+        
+        // Check if this domain is in our blocklist
+        const isTracker = TRACKER_BLOCKLIST.some(blocked => domain.includes(blocked));
+        
+        if (isTracker) {
+          console.log(`[DataShadow Intercept] 🛡️ Real-time threat caught: ${domain}`);
+          
+          // 1. Get current tab to associate with a site
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs[0] && tabs[0].url) {
+              const siteDomain = new URL(tabs[0].url).hostname;
+              
+              // 2. Record the block event immediately
+              recordBlockEvent(1, siteDomain, domain);
+              
+              // 3. Update AI Risk Score dynamically
+              updateAIRisk(siteDomain);
+            }
+          });
+        }
+      } catch (e) {}
+    }
+  },
+  { urls: ["<all_urls>"] }
+);
+
+// ── AI Risk Processor ────────────────────────────────────────────────────────
+async function updateAIRisk(domain) {
+  const { lastAnalysis, dashboardStats } = await chrome.storage.local.get(['lastAnalysis', 'dashboardStats']);
+  if (!lastAnalysis || lastAnalysis.domain !== domain) return;
+
+  // Calculate risk based on LIVE data
+  const stats = dashboardStats || {};
+  const trackersCaught = (stats.geoTrackers || []).filter(t => t.domain.includes(domain)).length;
+  
+  // Risk Heuristics
+  let riskScore = 30; // Base risk
+  riskScore += trackersCaught * 8; // Each live tracker adds risk
+  
+  // Add jurisdiction risk (e.g., data going to certain locations)
+  const jurisdictions = (stats.geoTrackers || []).map(t => t.country);
+  if (jurisdictions.includes('Russia') || jurisdictions.includes('China')) riskScore += 15;
+  
+  riskScore = Math.min(98, riskScore); // Cap at 98%
+  
+  lastAnalysis.aiRiskScore = riskScore;
+  lastAnalysis.aiRiskLevel = riskScore > 75 ? 'CRITICAL' : (riskScore > 45 ? 'HIGH' : 'MODERATE');
+  
+  await chrome.storage.local.set({ lastAnalysis });
 }
 
 // ── Stats Engine ─────────────────────────────────────────────────────────────
@@ -203,8 +247,49 @@ function todayKey() {
 // Record a block event (called when shield is on and trackers are detected)
 let blockQueue = 0;
 let blockTimeout = null;
+let geoCache = {}; // In-memory cache for the current session
 
-async function recordBlockEvent(count, domain) {
+async function getGeoCache() {
+  const { trackerGeoCache = {} } = await chrome.storage.local.get('trackerGeoCache');
+  return trackerGeoCache;
+}
+
+async function resolveTrackerGeo(domain) {
+  // 1. Check in-memory/storage cache
+  const cache = await getGeoCache();
+  if (cache[domain]) return cache[domain];
+  if (geoCache[domain]) return geoCache[domain];
+
+  try {
+    // 2. Fetch from Geo-IP API (ip-api.com is free and demo-friendly)
+    // We use a small delay or batching if needed, but for a demo, a simple fetch is fine.
+    const res = await fetch(`http://ip-api.com/json/${domain}?fields=status,message,country,city,lat,lon,query`);
+    const data = await res.json();
+
+    if (data.status === 'success') {
+      const geoData = {
+        city: data.city,
+        country: data.country,
+        lat: data.lat,
+        lon: data.lon,
+        ip: data.query,
+        timestamp: Date.now()
+      };
+      
+      // 3. Save to cache
+      geoCache[domain] = geoData;
+      const updatedCache = { ...cache, [domain]: geoData };
+      await chrome.storage.local.set({ trackerGeoCache: updatedCache });
+      
+      return geoData;
+    }
+  } catch (err) {
+    console.warn(`[Geo-IP] Failed to resolve ${domain}:`, err);
+  }
+  return null;
+}
+
+async function recordBlockEvent(count, siteDomain, trackerDomain = null) {
   if (count <= 0) return;
   
   blockQueue += count;
@@ -225,7 +310,7 @@ async function recordBlockEvent(count, domain) {
     ensureTodayBucket(stats);
     stats.weeklyData = trimWeeklyData(stats.weeklyData);
   
-    console.log(`[DataShadow Engine] Recording ${currentCount} blocks for ${domain}`);
+    console.log(`[DataShadow Engine] Recording ${currentCount} blocks for ${siteDomain}`);
   
     const bytesSaved = currentCount * 16000;
     stats.totalBlocked += currentCount;
@@ -235,11 +320,29 @@ async function recordBlockEvent(count, domain) {
   
     const newEntry = {
       type: 'block',
-      message: `Blocked <strong>${currentCount} tracker${currentCount > 1 ? 's' : ''}</strong> on ${domain}`,
+      message: `Blocked <strong>${currentCount} tracker${currentCount > 1 ? 's' : ''}</strong> on ${siteDomain}`,
       timestamp: Date.now()
     };
   
     const updatedLog = [...activityLog, newEntry].slice(-100);
+    
+    // Resolve Geo-location for the map using the specific tracker domain if available
+    const domainToResolve = trackerDomain || siteDomain;
+    const geo = await resolveTrackerGeo(domainToResolve);
+    if (geo) {
+      stats.geoTrackers = stats.geoTrackers || [];
+      const existing = stats.geoTrackers.find(t => t.domain === domainToResolve);
+      if (!existing) {
+        stats.geoTrackers.push({
+          domain: domainToResolve,
+          ...geo,
+          type: 'tracker'
+        });
+        // Keep last 50 unique locations for performance
+        if (stats.geoTrackers.length > 50) stats.geoTrackers.shift();
+      }
+    }
+
     await chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog });
     syncStatsToSupabase();
   }, 100); // 100ms batching

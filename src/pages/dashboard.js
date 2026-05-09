@@ -1,4 +1,7 @@
 // DataShadow Value Dashboard — Enhanced Logic
+let leafletMap = null;
+let userMarker = null;
+let trackerLayers = []; // Track all added layers so we can clear them on refresh
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Bulletproof context check: Allow dashboard to run even as a local file for demos
@@ -19,7 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   loadDashboardData();
-  renderPrivacyMap();
   renderPrivacyTip();
 
   // Show user info
@@ -79,6 +81,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.open('src/pages/pro.html', '_blank');
       }
     };
+  }
+
+  // Real-time update listener for new blocks/locations
+  if (isExt) {
+    chrome.storage.onChanged.addListener((changes) => {
+      if (changes.dashboardStats) {
+        loadDashboardData();
+        renderPrivacyMap();
+      }
+    });
+
+    // 1-Minute Pulse Refresh (Safety Net for Cloud Sync / AI Risk updates)
+    setInterval(() => {
+      console.log('[DataShadow Pulse] 1-minute refresh triggered...');
+      loadDashboardData();
+      renderPrivacyMap();
+    }, 60000);
   }
 });
 
@@ -146,6 +165,9 @@ function loadDashboardData() {
     animateCounter('total-blocked', stats.totalBlocked);
     animateCounter('sessions-protected', stats.sessionsProtected);
     animateCounter('cookies-cleaned', stats.cookiesCleaned);
+
+    // Render Real Tracker Geo-Map
+    renderPrivacyMap(stats.geoTrackers || []);
 
     // Current Site Micro-Stats
     const currentBlockedEl = document.getElementById('current-site-blocked');
@@ -298,169 +320,132 @@ function renderWeeklyChart(wd) {
   });
 }
 
-// ── Privacy Threat Map (SVG) ──
-function renderPrivacyMap() {
+// ── Real Tracker Geo-Map (Leaflet.js) ──
+/**
+ * STEP 1: Get the real user location using browser Geolocation API
+ * Falls back to IP-based geolocation if user denies permission
+ */
+async function getRealUserLocation() {
+  return new Promise((resolve) => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            source: 'gps'
+          });
+        },
+        async () => {
+          console.log('[DataShadow Map] GPS denied, falling back to IP geolocation...');
+          try {
+            const res = await fetch('http://ip-api.com/json/?fields=lat,lon,city,country');
+            const data = await res.json();
+            resolve({
+              lat: data.lat,
+              lon: data.lon,
+              city: data.city,
+              country: data.country,
+              source: 'ip'
+            });
+          } catch (e) {
+            console.warn('[DataShadow Map] IP geo also failed, using default');
+            resolve({ lat: 20, lon: 0, source: 'fallback' });
+          }
+        },
+        { timeout: 5000, maximumAge: 60000 }
+      );
+    } else {
+      resolve({ lat: 20, lon: 0, source: 'fallback' });
+    }
+  });
+}
+
+/**
+ * STEP 2: Load real tracker geo data from chrome.storage.local
+ */
+async function getRealGeoTrackers() {
+  return new Promise((resolve) => {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get('dashboardStats', (data) => {
+        const stats = data.dashboardStats || {};
+        const geoTrackers = stats.geoTrackers || [];
+        resolve(geoTrackers);
+      });
+    } else {
+      resolve(TRACKER_LOCATIONS.slice(0, 10)); // Fallback for local demo
+    }
+  });
+}
+
+/**
+ * STEP 3: Render the map with REAL data
+ */
+async function renderPrivacyMap() {
   const container = document.getElementById('map-container');
-  const tooltip = document.getElementById('map-tooltip');
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  // Match the viewBox of the loaded world-map.svg exactly so the grids and dots align perfectly with it
-  svg.setAttribute('viewBox', '30.767 241.591 784.077 458.627');
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  if (!container || !window.L) return;
 
-  // Subtle grid adapted for new viewBox
-  const grid = document.createElementNS(ns, 'g');
-  grid.setAttribute('opacity', '0.04');
-  for (let x = 30; x <= 814; x += 45) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1',x); l.setAttribute('y1',241);
-    l.setAttribute('x2',x); l.setAttribute('y2',700);
-    l.setAttribute('stroke','#fff'); l.setAttribute('stroke-width','0.3');
-    grid.appendChild(l);
-  }
-  for (let y = 241; y <= 700; y += 45) {
-    const l = document.createElementNS(ns, 'line');
-    l.setAttribute('x1',30); l.setAttribute('y1',y);
-    l.setAttribute('x2',814); l.setAttribute('y2',y);
-    l.setAttribute('stroke','#fff'); l.setAttribute('stroke-width','0.3');
-    grid.appendChild(l);
-  }
-  svg.appendChild(grid);
+  // Fetch real data in parallel
+  const [userLocation, geoTrackers] = await Promise.all([
+    getRealUserLocation(),
+    getRealGeoTrackers()
+  ]);
 
-  // Continent silhouettes container
-  const land = document.createElementNS(ns, 'g');
+  // ── Initialize Map (only once) ──
+  if (!leafletMap) {
+    leafletMap = L.map('map-container', {
+      center: [userLocation.lat, userLocation.lon],
+      zoom: 2,
+      zoomControl: true,
+      attributionControl: false,
+      minZoom: 1,
+      maxZoom: 10
+    });
 
-  // Load highly realistic SVG map dynamically
-  fetch(chrome.runtime.getURL('public/world-map.svg'))
-    .then(r => r.text())
-    .then(text => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'image/svg+xml');
-      // The world map paths are inside a <g> in the loaded SVG
-      const mapGroups = doc.querySelectorAll('svg > g');
-      mapGroups.forEach(g => {
-        const importedG = document.importNode(g, true);
-        land.appendChild(importedG);
-      });
-      // Style the imported realistic paths
-      const allPaths = land.querySelectorAll('path');
-      allPaths.forEach(p => {
-        p.setAttribute('fill', 'rgba(56,189,248,0.15)');
-        p.setAttribute('stroke', 'rgba(56,189,248,0.3)');
-        p.setAttribute('stroke-width', '0.5');
-      });
-    })
-    .catch(err => console.error('Failed to load world map', err));
-
-  svg.appendChild(land);
-
-  // Lat/Lon → SVG projection tailored for the loaded world-map.svg viewBox
-  // The downloaded world-map.svg has viewBox="30.767 241.591 784.077 458.627"
-  function project(lat, lon) {
-    const x = 30.767 + ((lon + 180) / 360) * 784.077;
-    const y = 241.591 + ((90 - lat) / 180) * 458.627;
-    return { x, y };
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(leafletMap);
+  } else {
+    trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
+    trackerLayers = [];
+    // Only set view if not already zoomed in
+    if (leafletMap.getZoom() < 3) leafletMap.setView([userLocation.lat, userLocation.lon], 2);
   }
 
-  // Threat arcs (lines from user approximate location to tracker)
-  const userPos = project(28.6, 77.2); // Default: India area
-  const arcs = document.createElementNS(ns, 'g');
-  arcs.setAttribute('opacity', '0.12');
+  // ── Add "YOU" Marker ──
+  if (userMarker) leafletMap.removeLayer(userMarker);
+  
+  const locationLabel = userLocation.city ? `YOU — ${userLocation.city}, ${userLocation.country}` : 'YOU (Your Device)';
 
-  TRACKER_LOCATIONS.forEach((t, i) => {
-    const p = project(t.lat, t.lon);
-    const color = TYPE_COLORS[t.type];
-    const mid = { x: (userPos.x + p.x) / 2, y: Math.min(userPos.y, p.y) - 30 - (i % 4) * 8 };
-    const arc = document.createElementNS(ns, 'path');
-    arc.setAttribute('d', `M${userPos.x},${userPos.y} Q${mid.x},${mid.y} ${p.x},${p.y}`);
-    arc.setAttribute('stroke', color);
-    arc.setAttribute('stroke-width', '0.8');
-    arc.setAttribute('fill', 'none');
-    arc.setAttribute('stroke-dasharray', '10,10');
-    arc.style.filter = `drop-shadow(0 0 5px ${color})`;
-    
-    // Add pulsing dash animation
-    const animate = document.createElementNS(ns, 'animate');
-    animate.setAttribute('attributeName', 'stroke-dashoffset');
-    animate.setAttribute('from', '100');
-    animate.setAttribute('to', '0');
-    animate.setAttribute('dur', (Math.random() * 2 + 2) + 's');
-    animate.setAttribute('repeatCount', 'indefinite');
-    arc.appendChild(animate);
-    
-    arcs.appendChild(arc);
+  userMarker = L.circleMarker([userLocation.lat, userLocation.lon], {
+    radius: 10, fillColor: '#00e676', color: '#ffffff', weight: 2.5, fillOpacity: 0.95
+  }).addTo(leafletMap).bindTooltip(`<b>🟢 ${locationLabel}</b>`);
+
+  // ── Render Trackers ──
+  const userPos = [userLocation.lat, userLocation.lon];
+  geoTrackers.forEach((tracker, index) => {
+    if (!tracker.lat || !tracker.lon) return;
+    const trackerPos = [tracker.lat, tracker.lon];
+    const isHighRisk = tracker.domain.includes('facebook') || tracker.domain.includes('google') || tracker.domain.includes('doubleclick');
+    const markerColor = isHighRisk ? '#ff2d6b' : '#ff6b35';
+
+    const marker = L.circleMarker(trackerPos, {
+      radius: isHighRisk ? 7 : 5, fillColor: markerColor, color: '#ffffff', weight: 1.5, fillOpacity: 0.85
+    }).addTo(leafletMap);
+
+    marker.bindTooltip(`<b>🔴 ${tracker.domain}</b><br>📍 ${tracker.city || 'Unknown'}<br>🌐 IP: ${tracker.ip || 'Unknown'}`);
+    trackerLayers.push(marker);
+
+    const line = L.polyline([userPos, trackerPos], {
+      color: isHighRisk ? 'rgba(255,45,107,0.35)' : 'rgba(255,107,53,0.25)',
+      weight: isHighRisk ? 1.5 : 1, dashArray: '6, 10', opacity: 0.7
+    }).addTo(leafletMap);
+    trackerLayers.push(line);
   });
-  svg.appendChild(arcs);
 
-  // User dot
-  const uGlow = document.createElementNS(ns, 'circle');
-  uGlow.setAttribute('cx', userPos.x); uGlow.setAttribute('cy', userPos.y);
-  uGlow.setAttribute('r', '10'); uGlow.setAttribute('fill', '#00ff88');
-  uGlow.setAttribute('opacity', '0.15');
-  uGlow.classList.add('map-dot-pulse');
-  svg.appendChild(uGlow);
-  const uDot = document.createElementNS(ns, 'circle');
-  uDot.setAttribute('cx', userPos.x); uDot.setAttribute('cy', userPos.y);
-  uDot.setAttribute('r', '4'); uDot.setAttribute('fill', '#00ff88');
-  svg.appendChild(uDot);
-  // "You" label
-  const uLabel = document.createElementNS(ns, 'text');
-  uLabel.setAttribute('x', userPos.x); uLabel.setAttribute('y', userPos.y + 16);
-  uLabel.setAttribute('text-anchor', 'middle');
-  uLabel.setAttribute('fill', '#00ff88'); uLabel.setAttribute('font-size', '8');
-  uLabel.setAttribute('font-weight', '700'); uLabel.setAttribute('font-family', 'Inter, sans-serif');
-  uLabel.textContent = 'YOU';
-  svg.appendChild(uLabel);
-
-  // Tracker dots
-  const dots = document.createElementNS(ns, 'g');
-  TRACKER_LOCATIONS.forEach((t, i) => {
-    const p = project(t.lat, t.lon);
-    const c = TYPE_COLORS[t.type];
-
-    // Glow
-    const g = document.createElementNS(ns, 'circle');
-    g.setAttribute('cx', p.x); g.setAttribute('cy', p.y);
-    g.setAttribute('r', '7'); g.setAttribute('fill', c); g.setAttribute('opacity', '0.18');
-    g.classList.add('map-dot-pulse');
-    g.style.animationDelay = (i * 0.15) + 's';
-    dots.appendChild(g);
-
-    // Dot
-    const d = document.createElementNS(ns, 'circle');
-    d.setAttribute('cx', p.x); d.setAttribute('cy', p.y);
-    d.setAttribute('r', '3'); d.setAttribute('fill', c);
-    d.style.cursor = 'pointer';
-    d.style.transition = 'all 0.2s';
-    dots.appendChild(d);
-
-    // Tooltip events
-    const showTip = () => {
-      const rect = container.getBoundingClientRect();
-      const svgR = svg.getBoundingClientRect();
-      const sx = svgR.width / 900, sy = svgR.height / 375;
-      tooltip.querySelector('.tt-name').textContent = t.name;
-      tooltip.querySelector('.tt-loc').textContent = '📍 ' + t.city;
-      tooltip.querySelector('.tt-type').textContent = TYPE_LABELS[t.type] || t.type;
-      tooltip.querySelector('.tt-type').style.color = c;
-      let tx = p.x * sx + 14, ty = p.y * sy - 14;
-      if (tx + 180 > svgR.width) tx = p.x * sx - 170;
-      tooltip.style.left = tx + 'px';
-      tooltip.style.top = ty + 'px';
-      tooltip.classList.add('visible');
-    };
-    d.addEventListener('mouseenter', showTip);
-    g.addEventListener('mouseenter', showTip);
-    d.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-    g.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
-  });
-  svg.appendChild(dots);
-
-  container.insertBefore(svg, container.querySelector('.map-scanline'));
-
-  // Update map count label
   const label = document.getElementById('map-count-label');
-  if (label) label.textContent = TRACKER_LOCATIONS.length + ' server locations tracked';
+  if (label) label.textContent = `${geoTrackers.length} active server locations`;
 }
 
 // ── Data Breakdown Panel ──

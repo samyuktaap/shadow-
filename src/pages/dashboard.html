@@ -7,6 +7,8 @@
   <meta name="description" content="See exactly how DataShadow protects your privacy — trackers blocked, data saved, and global threat map.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../lib/leaflet.css" />
+  <script src="../lib/leaflet.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -504,21 +506,13 @@
             <span id="map-count-label">0 server locations</span>
           </div>
         </div>
-        <div class="map-container" id="map-container">
-          <div class="map-scanline"></div>
-          <div class="map-tooltip" id="map-tooltip">
-            <div class="tt-name"></div>
-            <div class="tt-loc"></div>
-            <div class="tt-type"></div>
-          </div>
-          <!-- SVG rendered by JS -->
+        <div class="map-container" id="map-container" style="background: #0b0d12; border-bottom: 1px solid rgba(255,255,255,0.05); overflow: hidden; position: relative; height: 400px; z-index: 1;">
+          <!-- Leaflet Map rendered here -->
         </div>
-        <div class="map-legend" style="padding: 0 28px 24px;">
-          <span class="map-legend-label">Threat type:</span>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#ff3333; box-shadow: 0 0 10px #ff3333;"></div>Ad Networks</div>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#f59e0b; box-shadow: 0 0 10px #f59e0b;"></div>Analytics</div>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#a78bfa; box-shadow: 0 0 10px #a78bfa;"></div>Social Pixels</div>
-          <div class="map-legend-item"><div class="map-legend-dot" style="background:#38bdf8; box-shadow: 0 0 10px #38bdf8;"></div>Data Brokers</div>
+        <div class="map-legend" style="padding: 16px 28px 24px; display: flex; gap: 20px; align-items: center; background: rgba(0,0,0,0.2);">
+          <span class="map-legend-label" style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--sub);">Detection Feed:</span>
+          <div class="map-legend-item" style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #fff;"><div class="map-legend-dot" style="width: 8px; height: 8px; border-radius: 50%; background:#ff3333; box-shadow: 0 0 10px #ff3333;"></div>Blocked Tracker</div>
+          <div class="map-legend-item" style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #fff;"><div class="map-legend-dot" style="width: 8px; height: 8px; border-radius: 50%; background:var(--green); box-shadow: 0 0 10px var(--green);"></div>You (Safe)</div>
         </div>
       </div>
     </div>
