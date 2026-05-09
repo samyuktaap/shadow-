@@ -60,37 +60,50 @@
       100% { transform: translate(40px, 40px) scale(1.15); }
     }
 
-    .dossier-container {
-      max-width: 1100px;
-      margin: 0 auto;
-      position: relative;
+    /* Dashboard Container */
+    .dossier-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 32px;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .main-intel {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
     }
 
     .dossier-header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 32px; padding-bottom: 24px;
+      margin-bottom: 40px; padding-bottom: 24px;
       border-bottom: 1px solid var(--border);
     }
-    .dossier-title { font-size: 32px; font-weight: 900; letter-spacing: -1px; color: #fff; }
+    .dossier-title { font-size: 36px; font-weight: 950; letter-spacing: -2px; color: #fff; }
     .dossier-title span { color: var(--red); }
-    .dossier-subtitle { color: var(--sub); font-size: 14px; font-weight: 500; margin-top: 4px; }
+    .dossier-subtitle { color: var(--sub); font-size: 14px; font-weight: 600; margin-top: 6px; letter-spacing: 1px; text-transform: uppercase; }
     
     .download-btn {
       background: rgba(255,136,0,0.1);
       border: 1px solid rgba(255,136,0,0.3);
       color: var(--orange);
-      padding: 10px 20px;
-      border-radius: 12px;
+      padding: 12px 24px;
+      border-radius: 14px;
       cursor: pointer;
-      font-size: 12px; font-weight: 800;
+      font-size: 12px; font-weight: 900;
       transition: all 0.3s;
-      display: flex; align-items: center; gap: 10px;
-      text-transform: uppercase; letter-spacing: 1px;
+      display: flex; align-items: center; gap: 12px;
+      text-transform: uppercase; letter-spacing: 2px;
     }
     .download-btn:hover {
       background: var(--orange); color: #000;
-      box-shadow: 0 0 20px rgba(255,136,0,0.4);
-      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(255,136,0,0.5);
+      transform: translateY(-3px);
     }
 
     .aggression-meter {
@@ -99,238 +112,265 @@
       border: 1px solid var(--border);
       border-top: 1px solid rgba(255,255,255,0.2);
       border-radius: 24px;
-      padding: 32px; margin-bottom: 32px;
+      padding: 32px;
       text-align: center;
       box-shadow: var(--shadow);
       position: relative; overflow: hidden;
     }
     .aggression-title {
-      font-size: 12px; font-weight: 800;
+      font-size: 11px; font-weight: 900;
       color: var(--orange);
-      text-transform: uppercase; letter-spacing: 3px;
-      margin-bottom: 12px;
+      text-transform: uppercase; letter-spacing: 4px;
+      margin-bottom: 16px;
     }
     .aggression-value {
-      font-size: 64px; font-weight: 950;
-      color: #fff; letter-spacing: -3px;
-      text-shadow: 0 0 30px var(--red-glow);
+      font-size: 72px; font-weight: 950;
+      color: #fff; letter-spacing: -4px;
+      text-shadow: 0 0 40px var(--red-glow);
     }
     .aggression-label {
-      font-size: 16px; font-weight: 700;
-      color: var(--red); margin-top: 8px;
-      text-transform: uppercase; letter-spacing: 1px;
+      font-size: 14px; font-weight: 800;
+      color: var(--red); margin-top: 12px;
+      text-transform: uppercase; letter-spacing: 2px;
     }
 
-    .dash-nav { display: flex; gap: 10px; margin-top: 20px; }
+    .dash-nav { display: flex; flex-direction: column; gap: 8px; }
     .dash-nav a {
       color: var(--sub); text-decoration: none;
-      font-size: 13px; font-weight: 600;
-      padding: 10px 20px; border-radius: 12px;
-      transition: all 0.2s; border: 1px solid transparent;
+      font-size: 13px; font-weight: 700;
+      padding: 12px 20px; border-radius: 14px;
+      transition: all 0.3s; border: 1px solid transparent;
+      background: rgba(255,255,255,0.02);
     }
     .dash-nav a:hover, .dash-nav a.active { 
       color: #fff; background: rgba(255,255,255,0.06); 
-      border-color: rgba(255,255,255,0.12);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .pro-tag { 
-      display: inline-block; 
-      background: linear-gradient(135deg, rgba(255,136,0,0.2), rgba(255,51,51,0.2)); 
-      color: var(--orange); font-size: 9px; font-weight: 800; 
-      padding: 2px 8px; border-radius: 4px; margin-left: 6px; 
-      vertical-align: middle; border: 1px solid rgba(255,136,0,0.3);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+      transform: translateX(5px);
     }
 
-    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px; }
-    .card {
+    .mini-card {
       background: rgba(20, 22, 35, 0.65);
       backdrop-filter: blur(24px);
       border: 1px solid var(--border);
-      border-radius: 20px; padding: 28px;
+      border-radius: 20px; padding: 24px;
       text-align: center; box-shadow: var(--shadow);
-      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .card:hover { transform: translateY(-8px); border-color: rgba(255,255,255,0.2); }
-    .card .value { font-size: 48px; font-weight: 900; margin: 12px 0; letter-spacing: -2px; }
-    .card .label { font-size: 12px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 1px; }
+    .mini-card .value { font-size: 32px; font-weight: 900; margin: 8px 0; letter-spacing: -1px; }
+    .mini-card .label { font-size: 11px; font-weight: 800; color: var(--sub); text-transform: uppercase; letter-spacing: 1px; }
     
     .risk-high { color: var(--red); text-shadow: 0 0 15px var(--red-glow); }
     .risk-med { color: var(--orange); text-shadow: 0 0 15px var(--orange-glow); }
     .risk-low { color: var(--orange); opacity: 0.8; }
 
-    .section { margin-bottom: 32px; }
+    .section { 
+      background: rgba(20, 22, 35, 0.4);
+      border-radius: 24px;
+      padding: 32px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
     .section h2 { 
-      font-size: 18px; font-weight: 800; margin-bottom: 20px; 
+      font-size: 18px; font-weight: 900; margin-bottom: 24px; 
       color: #fff; border-left: 4px solid var(--red); padding-left: 16px;
-      text-transform: uppercase; letter-spacing: 1px;
+      text-transform: uppercase; letter-spacing: 2px;
     }
 
-    .tracker-list { display: flex; flex-wrap: wrap; gap: 12px; }
+    .tracker-list { display: flex; flex-wrap: wrap; gap: 10px; }
     .tracker-tag {
       background: rgba(255,136,0,0.06);
       color: var(--orange);
-      border: 1px solid rgba(255,136,0,0.2);
+      border: 1px solid rgba(255,136,0,0.25);
       padding: 8px 16px;
       border-radius: 12px;
-      font-size: 13px; font-weight: 600;
-      transition: all 0.2s;
+      font-size: 12px; font-weight: 800;
+      transition: all 0.3s;
+      text-transform: uppercase;
     }
-    .tracker-tag:hover { background: rgba(255,136,0,0.12); border-color: var(--orange); }
-
-    .shield-card {
-      background: rgba(20, 22, 35, 0.65);
-      backdrop-filter: blur(24px);
-      border-radius: 20px; padding: 24px;
-      border: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
-      box-shadow: var(--shadow);
-    }
-    .shield-info h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; color: #fff; }
-    .shield-info p { font-size: 13px; color: var(--sub); font-weight: 500; }
-    
-    .toggle-btn {
-      background: rgba(255,255,255,0.05);
-      color: var(--sub);
-      border: 1px solid var(--border);
-      padding: 10px 28px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-weight: 800; font-size: 13px;
-      transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
-    }
-    .toggle-btn.on {
-      background: rgba(255,136,0,0.15);
-      color: var(--orange);
-      border-color: var(--orange);
-      box-shadow: 0 0 15px rgba(255,136,0,0.3);
-    }
+    .tracker-tag:hover { background: var(--orange); color: #000; transform: scale(1.05); }
 
     .danger-list { display: flex; flex-direction: column; gap: 12px; }
     .danger-item {
-      background: rgba(20, 22, 35, 0.65);
-      backdrop-filter: blur(12px);
-      border-radius: 16px; padding: 18px 24px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px; padding: 20px 24px;
       border: 1px solid var(--border);
-      border-left: 4px solid var(--red);
+      border-left: 5px solid var(--red);
       display: flex; justify-content: space-between; align-items: center;
-      transition: transform 0.2s;
+      transition: all 0.3s;
     }
-    .danger-item:hover { transform: translateX(5px); background: rgba(255,255,255,0.02); }
-    .danger-item .field-name { font-weight: 700; color: #fff; }
+    .danger-item:hover { transform: translateX(10px); background: rgba(255,51,51,0.05); }
+    .danger-item .field-name { font-weight: 800; color: #fff; font-size: 14px; }
     .danger-item .field-risk {
-      font-size: 11px; font-weight: 800;
-      background: rgba(255,51,51,0.15);
+      font-size: 10px; font-weight: 900;
+      background: rgba(255,51,51,0.2);
       color: var(--red);
       padding: 4px 12px;
       border-radius: 8px;
-      border: 1px solid rgba(255,51,51,0.2);
+      border: 1px solid rgba(255,51,51,0.3);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+
+    .ai-block {
+      background: rgba(20, 22, 35, 0.8);
+      border: 1px solid rgba(255,136,0,0.2);
+      border-radius: 20px;
+      padding: 24px;
+    }
+
+    .shield-card {
+      background: rgba(255,51,51,0.03);
+      border-radius: 20px; padding: 24px;
+      border: 1px solid rgba(255,51,51,0.15);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .shield-info h3 { font-size: 18px; font-weight: 900; margin-bottom: 6px; color: #fff; }
+    .shield-info p { font-size: 13px; color: var(--sub); font-weight: 600; line-height: 1.5; }
+    
+    .toggle-btn {
+      background: rgba(255,255,255,0.08);
+      color: var(--sub);
+      border: 1px solid var(--border);
+      padding: 12px 32px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 900; font-size: 13px;
+      transition: all 0.3s; text-transform: uppercase; letter-spacing: 1.5px;
+    }
+    .toggle-btn.on {
+      background: var(--orange);
+      color: #000;
+      box-shadow: 0 0 20px var(--orange-glow);
+      border-color: transparent;
+    }
+
+    /* Dossier Stamp */
+    .dossier-stamp {
+      position: absolute;
+      top: 100px;
+      right: 20px;
+      border: 4px solid var(--red);
+      color: var(--red);
+      padding: 8px 24px;
+      font-size: 24px;
+      font-weight: 900;
+      transform: rotate(-15deg);
+      opacity: 0.3;
+      border-radius: 8px;
+      pointer-events: none;
+      text-transform: uppercase;
+      letter-spacing: 4px;
     }
   </style>
 </head>
 <body>
 
-  <div class="dossier-header">
-    <div>
-      <div class="dossier-title">INTELLIGENCE DOSSIER</div>
-      <div class="dossier-subtitle" id="domain-display">🌐 Loading...</div>
-    </div>
-    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
-      <div class="dash-nav" style="margin-top: 0;">
-        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
-        <a href="pro.html" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
-        <a href="whatif.html" id="nav-whatif">What-If</a>
-        <a href="report.html" class="active" id="nav-report">Full Report</a>
-        <a href="history.html" id="nav-history">History</a>
+  <div class="dossier-container">
+    <div class="dossier-stamp">Classified</div>
+
+    <div class="dossier-header">
+      <div>
+        <div class="dossier-title">INTELLIGENCE <span>DOSSIER</span></div>
+        <div class="dossier-subtitle" id="domain-display">🌐 Loading Site Intelligence...</div>
       </div>
       <button class="download-btn" id="download-report">
-        <i class="fas fa-download"></i> EXPORT DOSSIER
+        <i class="fas fa-file-export"></i> Export Final Dossier
       </button>
     </div>
-  </div>
 
-  <div class="aggression-meter">
-    <div class="aggression-title">Aggression Score</div>
-    <div class="aggression-value" id="aggression-score">0</div>
-    <div class="aggression-label" id="aggression-label">SCANNING...</div>
-  </div>
+    <div class="dossier-layout">
+      <!-- Sidebar: Meta & Nav -->
+      <aside class="sidebar">
+        <div class="dash-nav">
+          <a href="dashboard.html" id="nav-dashboard">Command Center</a>
+          <a href="pro.html" id="nav-pro">Pro Access <span class="pro-tag">NEW</span></a>
+          <a href="whatif.html" id="nav-whatif">Simulation Engine</a>
+          <a href="report.html" class="active" id="nav-report">Intelligence Dossier</a>
+          <a href="history.html" id="nav-history">Archived Logs</a>
+        </div>
 
-  <!-- Score Cards -->
-  <div class="grid">
-    <div class="card">
-      <div class="label">PRIVACY RISK SCORE</div>
-      <div class="value risk-high" id="score-display">--</div>
-      <div class="label">out of 100</div>
-    </div>
-    <div class="card">
-      <div class="label">TRACKERS DETECTED</div>
-      <div class="value risk-high" id="tracker-count">--</div>
-      <div class="label">shadow trackers</div>
-    </div>
-    <div class="card">
-      <div class="label">RISK LEVEL</div>
-      <div class="value risk-high" id="risk-level">--</div>
-      <div class="label">classification</div>
-    </div>
-  </div>
+        <div class="aggression-meter">
+          <div class="aggression-title">Threat Aggression</div>
+          <div class="aggression-value" id="aggression-score">0</div>
+          <div class="aggression-label" id="aggression-label">ANALYZING...</div>
+        </div>
 
-  <!-- Tracker Names -->
-  <div class="section">
-    <h2>🕵️ Detected Tracker Names</h2>
-    <div class="tracker-list" id="tracker-tags">
-      <div class="tracker-tag">Loading...</div>
-    </div>
-  </div>
+        <div class="mini-card">
+          <div class="label">Privacy Score</div>
+          <div class="value risk-high" id="score-display">--</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">Total Trackers</div>
+          <div class="value risk-high" id="tracker-count">--</div>
+        </div>
+        <div class="mini-card">
+          <div class="label">Risk Status</div>
+          <div class="value risk-high" id="risk-level">--</div>
+        </div>
+      </aside>
 
-  <!-- Dangerous Fields -->
-  <div class="section">
-    <h2>⚠️ Dangerous Data Fields</h2>
-    <div class="danger-list" id="danger-list">
-      <div style="color: #888; font-size: 14px;">Analyzing fields...</div>
-    </div>
-  </div>
+      <!-- Main Content: Deep Intel -->
+      <main class="main-intel">
+        <!-- AI Deep Scan -->
+        <div class="section">
+          <h2>🤖 AI System Inference (Random Forest)</h2>
+          <div class="ai-block">
+            <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 16px;">
+              <div style="font-size: 20px; font-weight: 900; color: var(--orange);" id="ai-risk-level">System Initializing...</div>
+              <div style="font-size: 13px; font-weight: 800; color: var(--sub); text-transform: uppercase; letter-spacing: 1px;" id="ai-confidence">Confidence: --%</div>
+            </div>
+            <div style="font-size: 14px; color: #fff; opacity: 0.8; margin-bottom: 20px; line-height: 1.7; font-weight: 500;" id="ai-explanation">
+              Awaiting telemetry data for high-fidelity model prediction...
+            </div>
+            <div style="width: 100%; padding-top: 20px; border-top: 1px solid rgba(255,136,0,0.2);">
+              <div style="font-size: 11px; font-weight: 900; color: var(--sub); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 2px;">Critical Risk Factors</div>
+              <ul id="ai-factors" style="font-size: 13px; color: var(--red); padding-left: 20px; margin: 0; display: flex; flex-direction: column; gap: 8px; font-weight: 600;">
+                <li>Waiting for sensor feedback...</li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
-  <!-- AI Prediction -->
-  <div class="section">
-    <h2>🤖 AI Privacy Prediction (Random Forest)</h2>
-    <div class="shield-card" style="flex-direction: column; align-items: flex-start; background: #0f172a; border-color: #1e293b;">
-      <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 10px;">
-        <div style="font-size: 16px; font-weight: bold; color: #38bdf8;" id="ai-risk-level">Analyzing...</div>
-        <div style="font-size: 14px; color: #94a3b8;" id="ai-confidence">Confidence: --%</div>
-      </div>
-      <div style="font-size: 13px; color: #cbd5e1; margin-bottom: 10px; line-height: 1.4;" id="ai-explanation">
-        Running model inference...
-      </div>
-      <div style="width: 100%; padding-top: 10px; border-top: 1px solid #1e293b;">
-        <div style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 5px;">TOP RISK FACTORS</div>
-        <ul id="ai-factors" style="font-size: 12px; color: #ef4444; padding-left: 20px; margin: 0;">
-          <li>Waiting for data...</li>
-        </ul>
-      </div>
-    </div>
-  </div>
+        <!-- Recommendations -->
+        <div class="section">
+          <h2>💡 Strategic Countermeasures</h2>
+          <div class="ai-block" style="border-color: rgba(255,51,51,0.2);">
+            <div style="font-size: 15px; font-weight: 900; color: var(--red); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px;" id="ai-priority-action">
+              Priority Action: ANALYZING THREAT...
+            </div>
+            <div id="ai-recommendations-list" style="width: 100%; display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 13px; color: var(--sub);">Awaiting system recommendations...</div>
+            </div>
+          </div>
+        </div>
 
-  <!-- AI Privacy Recommendations -->
-  <div class="section">
-    <h2>💡 AI Privacy Recommendations</h2>
-    <div class="shield-card" style="flex-direction: column; align-items: flex-start; background: #0f172a; border-color: #1e293b;">
-      <div style="font-size: 14px; font-weight: bold; color: #facc15; margin-bottom: 10px;" id="ai-priority-action">
-        Priority Action: Analyzing...
-      </div>
-      <div id="ai-recommendations-list" style="width: 100%; display: flex; flex-direction: column; gap: 10px;">
-        <div style="font-size: 13px; color: #94a3b8;">Loading recommendations...</div>
-      </div>
-    </div>
-  </div>
+        <!-- Tracker Names -->
+        <div class="section">
+          <h2>🕵️ Tracker Fingerprints</h2>
+          <div class="tracker-list" id="tracker-tags">
+            <div class="tracker-tag">Scanning...</div>
+          </div>
+        </div>
 
-  <!-- Shadow Shield -->
-  <div class="section">
-    <h2>🛡️ Shadow Shield</h2>
-    <div class="shield-card">
-      <div class="shield-info">
-        <h3>Permanent Tracker Blocker</h3>
-        <p>Blocks DoubleClick, Facebook Pixel & other known trackers from ever loading.</p>
-      </div>
-      <button class="toggle-btn" id="shield-btn">OFF</button>
+        <!-- Dangerous Fields -->
+        <div class="section">
+          <h2>⚠️ Targeted Data Vectors</h2>
+          <div class="danger-list" id="danger-list">
+            <div style="color: var(--sub); font-size: 14px; font-weight: 500;">Analyzing intercepted data packets...</div>
+          </div>
+        </div>
+
+        <!-- Shadow Shield -->
+        <div class="section">
+          <h2>🛡️ Active Defense System</h2>
+          <div class="shield-card">
+            <div class="shield-info">
+              <h3>Shadow Shield v4.0</h3>
+              <p>Hardware-level tracker neutralizing. Prevents data harvesting scripts from initiating handshake.</p>
+            </div>
+            <button class="toggle-btn" id="shield-btn">OFF</button>
+          </div>
+        </div>
+      </main>
     </div>
   </div>
 

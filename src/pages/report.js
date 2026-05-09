@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           dangerContainer.appendChild(item);
         });
       } else {
-        dangerContainer.innerHTML = '<div style="color:#00ff88; font-size:14px;">✅ No dangerous fields detected.</div>';
+        dangerContainer.innerHTML = '<div style="color:var(--orange); font-size:14px;">✅ No dangerous fields detected.</div>';
       }
 
       // Add explanation if detailedAnalysis is present
@@ -134,9 +134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const aiFact = document.getElementById('ai-factors');
 
         aiRisk.innerText = `Predicted Risk: ${aiPrediction.predicted_risk_level}`;
-        if (aiPrediction.predicted_risk_level === 'High') aiRisk.style.color = '#ff3333';
-        else if (aiPrediction.predicted_risk_level === 'Moderate') aiRisk.style.color = '#ff8800';
-        else aiRisk.style.color = '#ffaa00'; // Light Orange for Safe/Low
+        if (aiPrediction.predicted_risk_level === 'High') aiRisk.style.color = 'var(--red)';
+        else aiRisk.style.color = 'var(--orange)';
 
         aiConf.innerText = `Confidence: ${aiPrediction.confidence_score}%`;
         aiExp.innerText = aiPrediction.model_explanation;
@@ -216,9 +215,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const aggressionLabel = document.getElementById('aggression-label');
       if (aggressionScore) aggressionScore.innerText = score;
       if (aggressionLabel) {
-        if (score > 70) { aggressionLabel.innerText = 'CRITICAL EXPOSURE'; aggressionLabel.style.color = '#ff3333'; }
-        else if (score > 40) { aggressionLabel.innerText = 'ELEVATED RISK'; aggressionLabel.style.color = '#ff8800'; }
-        else { aggressionLabel.innerText = 'SECURE PARAMETER'; aggressionLabel.style.color = '#ffaa00'; }
+        if (score > 70) { aggressionLabel.innerText = 'CRITICAL EXPOSURE'; aggressionLabel.style.color = 'var(--red)'; }
+        else if (score > 40) { aggressionLabel.innerText = 'ELEVATED RISK'; aggressionLabel.style.color = 'var(--orange)'; }
+        else { aggressionLabel.innerText = 'SECURE PARAMETER'; aggressionLabel.style.color = 'var(--orange)'; aggressionLabel.style.opacity = '0.8'; }
       }
 
       // ── EXPORT DOSSIER LOGIC ──
