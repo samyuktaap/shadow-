@@ -134,9 +134,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const aiFact = document.getElementById('ai-factors');
 
         aiRisk.innerText = `Predicted Risk: ${aiPrediction.predicted_risk_level}`;
-        if (aiPrediction.predicted_risk_level === 'High') aiRisk.style.color = '#ef4444';
-        else if (aiPrediction.predicted_risk_level === 'Moderate') aiRisk.style.color = '#f59e0b';
-        else aiRisk.style.color = '#10b981';
+        if (aiPrediction.predicted_risk_level === 'High') aiRisk.style.color = '#ff3333';
+        else if (aiPrediction.predicted_risk_level === 'Moderate') aiRisk.style.color = '#ff8800';
+        else aiRisk.style.color = '#ffaa00'; // Light Orange for Safe/Low
 
         aiConf.innerText = `Confidence: ${aiPrediction.confidence_score}%`;
         aiExp.innerText = aiPrediction.model_explanation;
@@ -149,12 +149,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             aiFact.appendChild(li);
           });
         } else {
-          aiFact.innerHTML = '<li style="color:#10b981;">No major risk factors detected.</li>';
+          aiFact.innerHTML = '<li style="color:#ff8800;">No major risk factors detected.</li>';
         }
       } else {
         document.getElementById('ai-risk-level').innerText = "Model Requires Fresh Data";
         document.getElementById('ai-explanation').innerText = "Please go back to the website and refresh the page (F5) so the new Random Forest AI can scan it.";
-        document.getElementById('ai-factors').innerHTML = '<li style="color:#f59e0b;">Waiting for a page refresh...</li>';
+        document.getElementById('ai-factors').innerHTML = '<li style="color:#ff8800;">Waiting for a page refresh...</li>';
       }
 
       // Populate AI Recommendations
@@ -196,13 +196,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (aiRecommendations.recommendations && aiRecommendations.recommendations.length > 0) {
           aiRecommendations.recommendations.forEach(rec => {
             const item = document.createElement('div');
-            item.style.background = 'rgba(255,255,255,0.05)';
-            item.style.padding = '10px';
-            item.style.borderRadius = '6px';
-            item.style.borderLeft = '3px solid #38bdf8';
+            item.style.background = 'rgba(255,255,255,0.03)';
+            item.style.padding = '12px';
+            item.style.borderRadius = '12px';
+            item.style.borderLeft = '4px solid var(--orange)';
+            item.style.border = '1px solid var(--border)';
             item.innerHTML = `
-              <div style="font-weight: bold; color: #f1f5f9; font-size: 13px;">${rec.action} <span style="color:#22c55e; font-size: 11px;">(+${rec.estimated_score_gain} score)</span></div>
-              <div style="color: #94a3b8; font-size: 12px; margin-top: 4px;">${rec.reason}</div>
+              <div style="font-weight: 800; color: #fff; font-size: 13px;">${rec.action} <span style="color:var(--orange); font-size: 11px;">(+${rec.estimated_score_gain} score)</span></div>
+              <div style="color: var(--sub); font-size: 12px; margin-top: 6px;">${rec.reason}</div>
             `;
             listElem.appendChild(item);
           });
@@ -216,8 +217,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (aggressionScore) aggressionScore.innerText = score;
       if (aggressionLabel) {
         if (score > 70) { aggressionLabel.innerText = 'CRITICAL EXPOSURE'; aggressionLabel.style.color = '#ff3333'; }
-        else if (score > 40) { aggressionLabel.innerText = 'ELEVATED RISK'; aggressionLabel.style.color = '#f59e0b'; }
-        else { aggressionLabel.innerText = 'SECURE PARAMETER'; aggressionLabel.style.color = '#00ff88'; }
+        else if (score > 40) { aggressionLabel.innerText = 'ELEVATED RISK'; aggressionLabel.style.color = '#ff8800'; }
+        else { aggressionLabel.innerText = 'SECURE PARAMETER'; aggressionLabel.style.color = '#ffaa00'; }
       }
 
       // ── EXPORT DOSSIER LOGIC ──

@@ -505,16 +505,16 @@ function predictPrivacyRiskRandomForest(data) {
 // Risk Classification Logic
 function classifyPrivacyRisk(score, data) {
   let riskLabel = "Safe";
-  let visualIndicator = "green";
+  let visualIndicator = "#ff8800"; // Orange (Safe/Low in restricted theme)
   let alertMessage = "Your privacy is well protected here.";
   
   if (score < 40) {
     riskLabel = "High Risk";
-    visualIndicator = "red";
+    visualIndicator = "#ff3333"; // Red
     alertMessage = "WARNING: Severe privacy risks detected. Immediate action recommended.";
   } else if (score <= 75) {
     riskLabel = "Moderate Risk";
-    visualIndicator = "yellow";
+    visualIndicator = "#ffaa00"; // Amber/Orange
     alertMessage = "Caution: Some invasive tracking mechanisms are active.";
   }
 
