@@ -14,18 +14,20 @@
 
     :root {
       --red:    #ff3333;
-      --red-2:  #ff6666;
-      --green:  #00ff88;
-      --blue:   #38bdf8;
-      --purple: #a78bfa;
-      --amber:  #f59e0b;
-      --bg:     #050508;
-      --surface:#0f1117;
-      --card:   #111318;
-      --border: rgba(255,255,255,0.06);
-      --muted:  #475569;
-      --sub:    #64748b;
-      --text:   #e2e8f0;
+      --red-glow: rgba(255,51,51,0.3);
+      --orange: #ff8800;
+      --orange-glow: rgba(255,136,0,0.3);
+      --black:  #000000;
+      --white:  #ffffff;
+      --bg:     #020202;
+      --surface:#080808;
+      --card:   #0f0f0f;
+      --border: rgba(255,255,255,0.08);
+      --muted:  #666666;
+      --sub:    #999999;
+      --text:   #ffffff;
+      --shadow: 0 20px 40px rgba(0,0,0,0.6);
+      --glow:   0 0 15px var(--orange-glow);
     }
 
     html { scroll-behavior: smooth; }
@@ -57,7 +59,7 @@
       top: -10%; left: -10%;
     }
     body::after {
-      background: radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 60%);
+      background: radial-gradient(circle, rgba(255,136,0,0.12) 0%, transparent 60%);
       bottom: -10%; right: -10%;
       animation-delay: -10s;
     }
@@ -86,24 +88,24 @@
     .dash-logo .shadow { color: #fff; }
     .dash-badge {
       display: inline-flex; align-items: center; gap: 6px;
-      background: rgba(0,255,136,0.08);
-      border: 1px solid rgba(0,255,136,0.2);
+      background: rgba(255,136,0,0.08);
+      border: 1px solid rgba(255,136,0,0.2);
       border-radius: 20px;
       padding: 4px 12px;
       font-size: 11px; font-weight: 600;
-      color: var(--green);
+      color: var(--orange);
       margin-top: 6px;
     }
     .badge-dot {
       width: 8px; height: 8px; border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 10px rgba(0,255,136,0.5);
+      background: var(--orange);
+      box-shadow: 0 0 10px rgba(255,136,0,0.5);
       animation: pulse-heartbeat 2.5s ease-in-out infinite;
     }
     @keyframes pulse-heartbeat {
-      0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
-      70% { transform: scale(1.1); opacity: 0.8; box-shadow: 0 0 0 10px rgba(0,255,136,0); }
-      100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(0,255,136,0); }
+      0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255,136,0,0.4); }
+      70% { transform: scale(1.1); opacity: 0.8; box-shadow: 0 0 0 10px rgba(255,136,0,0); }
+      100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255,136,0,0); }
     }
     .dash-nav { display: flex; gap: 8px; }
     .dash-nav a {
@@ -114,9 +116,9 @@
       cursor: pointer;
     }
     .dash-nav a:hover, .dash-nav a.active { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
-    .dash-nav a.cta { background: linear-gradient(135deg, var(--red), var(--red-2)); color: #fff; border: none; box-shadow: 0 4px 15px rgba(255,51,51,0.25); }
+    .dash-nav a.cta { background: linear-gradient(135deg, var(--red), var(--orange)); color: #fff; border: none; box-shadow: 0 4px 15px rgba(255,51,51,0.25); }
     .dash-nav a.cta:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,51,51,0.4); }
-    .pro-tag { display: inline-block; background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(56,189,248,0.2)); color: #a78bfa; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+    .pro-tag { display: inline-block; background: linear-gradient(135deg, rgba(255,136,0,0.2), rgba(255,51,51,0.2)); color: var(--orange); font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; box-shadow: 0 2px 8px rgba(255,136,0,0.3); }
 
     .stats-grid {
       display: grid;
@@ -151,23 +153,19 @@
       position: absolute; top: 0; left: 0; right: 0;
       height: 2px;
     }
-    .stat-card.red::before    { background: linear-gradient(90deg, var(--red), var(--red-2)); }
-    .stat-card.green::before  { background: linear-gradient(90deg, #00cc6e, var(--green)); }
-    .stat-card.blue::before   { background: linear-gradient(90deg, #0ea5e9, var(--blue)); }
-    .stat-card.purple::before { background: linear-gradient(90deg, #7c3aed, var(--purple)); }
+    .stat-card.red::before    { background: linear-gradient(90deg, var(--red), var(--orange)); }
+    .stat-card.orange::before { background: linear-gradient(90deg, #ffbb00, var(--orange)); }
     /* Corner glow */
     .stat-card::after {
       content: '';
       position: absolute; top: -40px; right: -40px;
       width: 120px; height: 120px;
       border-radius: 50%;
-      opacity: 0.06;
+      opacity: 0.1;
       pointer-events: none;
     }
     .stat-card.red::after    { background: var(--red); }
-    .stat-card.green::after  { background: var(--green); }
-    .stat-card.blue::after   { background: var(--blue); }
-    .stat-card.purple::after { background: var(--purple); }
+    .stat-card.orange::after  { background: var(--orange); }
 
     .stat-icon { font-size: 26px; margin-bottom: 14px; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
     .stat-value {
@@ -176,9 +174,7 @@
       margin-bottom: 6px; text-shadow: 0 2px 10px rgba(255,255,255,0.1);
     }
     .stat-card.red .stat-value    { color: var(--red); }
-    .stat-card.green .stat-value  { color: var(--green); }
-    .stat-card.blue .stat-value   { color: var(--blue); }
-    .stat-card.purple .stat-value { color: var(--purple); }
+    .stat-card.orange .stat-value  { color: var(--orange); }
     .stat-label {
       font-size: 11px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 1.2px;
@@ -190,8 +186,8 @@
       margin-top: 10px; padding: 4px 10px;
       border-radius: 6px;
     }
-    .stat-change.up   { background: rgba(0,255,136,0.08); color: var(--green); }
-    .stat-change.info { background: rgba(56,189,248,0.08); color: var(--blue); }
+    .stat-change.up   { background: rgba(255,136,0,0.08); color: var(--orange); }
+    .stat-change.info { background: rgba(255,51,51,0.08); color: var(--red); }
 
     /* ── Content Grid ── */
     .content-row {
@@ -409,9 +405,9 @@
       font-size: 15px; flex-shrink: 0;
     }
     .activity-icon.block  { background: rgba(255,51,51,0.14); }
-    .activity-icon.clean  { background: rgba(0,255,136,0.12); }
-    .activity-icon.shield { background: rgba(56,189,248,0.12); }
-    .activity-icon.scan   { background: rgba(167,139,250,0.12); }
+    .activity-icon.clean  { background: rgba(255,136,0,0.12); }
+    .activity-icon.shield { background: rgba(255,51,51,0.12); }
+    .activity-icon.scan   { background: rgba(255,136,0,0.12); }
     .activity-text { flex: 1; font-size: 12px; color: #94a3b8; line-height: 1.45; }
     .activity-text strong { color: #e2e8f0; font-weight: 600; }
     .activity-time { font-size: 10px; color: var(--muted); white-space: nowrap; }
@@ -534,7 +530,7 @@
     </div>
 
     <!-- ── REAL-TIME TELEMETRY HUB (New Section) ── -->
-    <div class="panel animate-in delay-1" style="margin-bottom: 24px; border-color: var(--blue); background: linear-gradient(135deg, rgba(15,17,23,0.9), rgba(5,5,8,0.95));">
+    <div class="panel animate-in delay-1" style="margin-bottom: 24px; border-color: var(--orange); background: linear-gradient(135deg, rgba(15,17,23,0.9), rgba(5,5,8,0.95));">
       <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
           <div class="panel-title" style="margin-bottom: 8px;">
@@ -545,9 +541,9 @@
         </div>
         <div id="network-pulse" style="display: flex; align-items: center; gap: 15px;">
            <div class="pulse-ring" style="position: relative; width: 40px; height: 40px;">
-             <div style="position: absolute; width: 100%; height: 100%; border: 2px solid var(--blue); border-radius: 50%; animation: pulse-out 2s infinite;"></div>
-             <div style="position: absolute; width: 100%; height: 100%; border: 2px solid var(--blue); border-radius: 50%; animation: pulse-out 2s infinite 1s;"></div>
-             <div style="position: absolute; width: 10px; height: 10px; background: var(--blue); border-radius: 50%; top: 15px; left: 15px; box-shadow: 0 0 15px var(--blue);"></div>
+             <div style="position: absolute; width: 100%; height: 100%; border: 2px solid var(--orange); border-radius: 50%; animation: pulse-out 2s infinite;"></div>
+             <div style="position: absolute; width: 100%; height: 100%; border: 2px solid var(--orange); border-radius: 50%; animation: pulse-out 2s infinite 1s;"></div>
+             <div style="position: absolute; width: 10px; height: 10px; background: var(--orange); border-radius: 50%; top: 15px; left: 15px; box-shadow: 0 0 15px var(--orange);"></div>
            </div>
            <style>
              @keyframes pulse-out { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
@@ -559,7 +555,7 @@
         <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05);">
           <div style="font-size: 10px; color: var(--sub); text-transform: uppercase; font-weight: 800; margin-bottom: 10px;">Active Monitoring</div>
           <div id="active-domain-name" style="font-size: 18px; font-weight: 900; color: #fff;">SCANNING ENGINE...</div>
-          <div id="active-domain-rating" style="margin-top: 5px; font-size: 11px; font-weight: 700; color: var(--green);">SAFE CONNECTION</div>
+          <div id="active-domain-rating" style="margin-top: 5px; font-size: 11px; font-weight: 700; color: var(--orange);">SECURE CONNECTION</div>
         </div>
         <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05);">
           <div style="font-size: 10px; color: var(--sub); text-transform: uppercase; font-weight: 800; margin-bottom: 5px;">Aggression Score</div>
@@ -570,8 +566,8 @@
         </div>
         <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05);">
           <div style="font-size: 10px; color: var(--sub); text-transform: uppercase; font-weight: 800; margin-bottom: 5px;">Threat Level</div>
-          <div id="threat-level-val" style="font-size: 16px; font-weight: 900; color: var(--green);">LOW</div>
-          <div id="threat-details" style="font-size: 10px; color: var(--sub); margin-top: 4px;">No active data harvesting detected.</div>
+          <div id="threat-level-val" style="font-size: 16px; font-weight: 900; color: var(--orange);">LOW</div>
+          <div id="threat-details" style="font-size: 10px; color: var(--sub); margin-top: 4px;">Monitoring...</div>
         </div>
       </div>
     </div>
@@ -585,19 +581,19 @@
         <div class="stat-change up" id="blocked-change">↑ loading…</div>
         <div id="current-site-blocked" style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">0 on this site</div>
       </div>
-      <div class="stat-card green animate-in delay-2">
+      <div class="stat-card orange animate-in delay-2">
         <span class="stat-icon">💾</span>
         <div class="stat-value" id="data-saved">—</div>
         <div class="stat-label">Bandwidth Recovered</div>
         <div class="stat-change up" id="data-change">↑ loading…</div>
       </div>
-      <div class="stat-card blue animate-in delay-3">
+      <div class="stat-card red animate-in delay-3">
         <span class="stat-icon">🔒</span>
         <div class="stat-value" id="sessions-protected">—</div>
         <div class="stat-label">Privacy Tunnels</div>
         <div class="stat-change info" id="sessions-change">↑ loading…</div>
       </div>
-      <div class="stat-card purple animate-in delay-4">
+      <div class="stat-card orange animate-in delay-4">
         <span class="stat-icon">🍪</span>
         <div class="stat-value" id="cookies-cleaned">—</div>
         <div class="stat-label">Digital Trace Erasures</div>

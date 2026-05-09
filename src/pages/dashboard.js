@@ -674,9 +674,9 @@ function renderDataBreakdown(stats) {
 
   const categories = [
     { icon: '🚫', label: 'Ad Scripts', val: Math.round(tb * 0.45), pct: 45, color: 'var(--red)' },
-    { icon: '📊', label: 'Analytics', val: Math.round(tb * 0.30), pct: 30, color: 'var(--amber)' },
-    { icon: '👤', label: 'Social Pixels', val: Math.round(tb * 0.15), pct: 15, color: 'var(--purple)' },
-    { icon: '🔍', label: 'Data Brokers', val: Math.round(tb * 0.10), pct: 10, color: 'var(--blue)' }
+    { icon: '📊', label: 'Analytics', val: Math.round(tb * 0.30), pct: 30, color: 'var(--orange)' },
+    { icon: '👤', label: 'Social Pixels', val: Math.round(tb * 0.15), pct: 15, color: 'var(--orange)' },
+    { icon: '🔍', label: 'Data Brokers', val: Math.round(tb * 0.10), pct: 10, color: 'var(--red)' }
   ];
 
   c.innerHTML = categories.map(i => `
@@ -692,7 +692,7 @@ function renderDataBreakdown(stats) {
   `).join('') + `
     <div class="data-row" style="margin-top: 8px; padding-top: 12px;">
       <div class="data-row-label" style="font-size: 11px;">💾 Bandwidth Saved</div>
-      <div class="data-row-value" style="color: var(--green); font-size: 12px;">${formatBytes(ts)}</div>
+      <div class="data-row-value" style="color: var(--orange); font-size: 12px;">${formatBytes(ts)}</div>
     </div>
   `;
 }
@@ -707,10 +707,10 @@ function renderShieldPerformance(stats, active) {
   const bps = Math.round(tb / sp);
 
   const items = [
-    { icon: '⚡', label: 'Shield Status', val: active ? 'ACTIVE' : 'INACTIVE', color: active ? 'var(--green)' : 'var(--red)' },
-    { icon: '📈', label: 'Efficiency', val: active ? '99.2%' : '0%', color: 'var(--blue)' },
-    { icon: '🛡️', label: 'Rules Active', val: active ? '50 domains' : '0', color: 'var(--purple)' },
-    { icon: '🎯', label: 'Avg Blocked', val: bps + ' / site', color: 'var(--amber)' }
+    { icon: '⚡', label: 'Shield Status', val: active ? 'ACTIVE' : 'INACTIVE', color: active ? 'var(--orange)' : 'var(--red)' },
+    { icon: '📈', label: 'Efficiency', val: active ? '99.2%' : '0%', color: 'var(--orange)' },
+    { icon: '🛡️', label: 'Rules Active', val: active ? '50 domains' : '0', color: 'var(--red)' },
+    { icon: '🎯', label: 'Avg Blocked', val: bps + ' / site', color: 'var(--orange)' }
   ];
 
   c.innerHTML = items.map(i => `
@@ -758,10 +758,10 @@ function renderActivityLog(log) {
 function renderPrivacyTip() {
   const tips = [
     { title: 'Your Data Footprint', body: 'Every site you visit drops an average of <strong>7 tracking cookies</strong>. DataShadow blocks them before they stick.', color: '#ff3333' },
-    { title: 'Invisible Watchers', body: 'The average webpage loads <strong>15+ third-party scripts</strong> from ad networks and data brokers — most run invisibly.', color: '#f59e0b' },
-    { title: 'Worth More Than You Think', body: 'Your browsing profile is worth <strong>$150–$250/year</strong> to data brokers. Shadow Shield keeps that value private.', color: '#00ff88' },
-    { title: 'Cross-Site Profiling', body: 'Trackers like Facebook Pixel follow you across <strong>30%+ of the web</strong>, building a profile even when you\'re logged out.', color: '#a78bfa' },
-    { title: 'Bandwidth Tax', body: 'Ad scripts and trackers consume <strong>20-40% of your page load time</strong>. Blocking them makes browsing faster.', color: '#38bdf8' },
+    { title: 'Invisible Watchers', body: 'The average webpage loads <strong>15+ third-party scripts</strong> from ad networks and data brokers — most run invisibly.', color: '#ff8800' },
+    { title: 'Worth More Than You Think', body: 'Your browsing profile is worth <strong>$150–$250/year</strong> to data brokers. Shadow Shield keeps that value private.', color: '#ff3333' },
+    { title: 'Cross-Site Profiling', body: 'Trackers like Facebook Pixel follow you across <strong>30%+ of the web</strong>, building a profile even when you\'re logged out.', color: '#ff8800' },
+    { title: 'Bandwidth Tax', body: 'Ad scripts and trackers consume <strong>20-40% of your page load time</strong>. Blocking them makes browsing faster.', color: '#ff3333' },
   ];
   const tip = tips[Math.floor(Math.random() * tips.length)];
   const c = document.getElementById('privacy-tip-content');
