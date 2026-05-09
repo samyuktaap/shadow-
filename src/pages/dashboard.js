@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (isExt) {
     try {
       authData = await chrome.storage.local.get(['supabaseUser', 'supabaseToken', 'shieldActive']);
-    } catch(e) { console.error("Storage error:", e); }
+    } catch (e) { console.error("Storage error:", e); }
   }
 
   // Only force redirect/close if explicitly in extension mode and missing auth
@@ -105,7 +105,7 @@ function handleLiveUpdate(data) {
 
   // 2. Update Intelligence Panel
   updateIntelligencePanel(data);
-  
+
   // 3. Add to Live Feed
   if (data.newEntry) {
     addLiveFeedEntry(data.newEntry);
@@ -114,22 +114,22 @@ function handleLiveUpdate(data) {
 
 function updateIntelligencePanel(data) {
   const domain = data.site || 'active site';
-  
+
   // Update Domain Name
   const nameEl = document.getElementById('active-domain-name');
   if (nameEl) nameEl.textContent = domain.toUpperCase();
-  
+
   // Aggression Spike logic: Catching a tracker spikes the score briefly
   const spikeScore = Math.min(100, (data.blockedCount || 0) * 15 + 40);
-  
+
   const scoreEl = document.getElementById('aggression-score-val');
   const barEl = document.getElementById('aggression-bar');
-  
+
   if (scoreEl && data.blockedCount > 0) {
     scoreEl.textContent = spikeScore;
     barEl.style.width = `${spikeScore}%`;
     barEl.style.background = spikeScore > 70 ? 'var(--red)' : 'var(--amber)';
-    
+
     // Reset to analyzed baseline after the spike
     setTimeout(() => {
       loadDashboardData();
@@ -141,20 +141,20 @@ function updateIntelligencePanel(data) {
 function addLiveFeedEntry(entry) {
   const logEl = document.getElementById('activity-log');
   if (!logEl) return;
-  
+
   const item = document.createElement('div');
   item.className = 'activity-item animate-in';
   item.style.borderLeft = `3px solid ${entry.type === 'block' ? 'var(--red)' : 'var(--purple)'}`;
-  
+
   const icon = entry.type === 'block' ? '🛡️' : '🔒';
   const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
+
   item.innerHTML = `
     <div class="activity-icon ${entry.type}">${icon}</div>
     <div class="activity-text">${entry.message}</div>
     <div class="activity-time">${time}</div>
   `;
-  
+
   logEl.prepend(item);
   if (logEl.children.length > 50) logEl.lastElementChild.remove();
 }
@@ -164,7 +164,7 @@ function handleFingerprintAlert(msg) {
   if (detailsEl) {
     detailsEl.innerHTML = `<span style="color:var(--red)">⚠️ Prevented ${msg.detectionType} attempt!</span>`;
     setTimeout(() => {
-       detailsEl.textContent = 'Monitoring active...';
+      detailsEl.textContent = 'Monitoring active...';
     }, 5000);
   }
 }
@@ -216,8 +216,8 @@ function loadDashboardData() {
   const processData = (res) => {
     const stats = res.dashboardStats || {
       totalBlocked: 0,
-      totalDataSaved: 0, 
-      sessionsProtected: 0, 
+      totalDataSaved: 0,
+      sessionsProtected: 0,
       cookiesCleaned: 0,
       weeklyData: {}
     };
@@ -237,7 +237,7 @@ function loadDashboardData() {
       stats.sessionsProtected = 42;
       stats.cookiesCleaned = 812;
       stats.protectedDomains = ['google.com', 'facebook.com', 'amazon.com', 'nytimes.com'];
-      
+
       // Generate some fake weekly data
       const now = new Date();
       for (let i = 0; i < 7; i++) {
@@ -245,7 +245,7 @@ function loadDashboardData() {
         const k = d.toISOString().split('T')[0];
         stats.weeklyData[k] = { blocked: Math.floor(Math.random() * 200) + 100, dataSaved: Math.floor(Math.random() * 1000000) };
       }
-      
+
       if (!res.activityLog || res.activityLog.length === 0) {
         res.activityLog = [
           { type: 'block', message: 'Neutralized tracking attempt from <strong>doubleclick.net</strong>', timestamp: Date.now() - 5000 },
@@ -292,11 +292,11 @@ function loadDashboardData() {
     const barEl = document.getElementById('aggression-bar');
     const levelEl = document.getElementById('threat-level-val');
     const nameEl = document.getElementById('active-domain-name');
-    
+
     if (nameEl) nameEl.textContent = (siteStats.domain || 'SYSTEM').toUpperCase();
     if (scoreEl) scoreEl.textContent = aggScore;
     if (barEl) barEl.style.width = `${aggScore}%`;
-    
+
     if (aggScore >= 75) {
       if (levelEl) { levelEl.textContent = 'CRITICAL'; levelEl.style.color = 'var(--red)'; }
       barEl.style.background = 'var(--red)';
@@ -387,7 +387,7 @@ function getWeekStats(wd) {
 function renderWeeklyChart(wd) {
   const c = document.getElementById('weekly-chart');
   c.innerHTML = '';
-  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const now = new Date();
   let max = 1;
   const items = [];
@@ -400,7 +400,7 @@ function renderWeeklyChart(wd) {
   }
 
   // Update subtitle with total
-  const total = items.reduce((s,x) => s + x.blocked, 0);
+  const total = items.reduce((s, x) => s + x.blocked, 0);
   const sub = document.getElementById('chart-subtitle');
   if (sub) sub.textContent = `${total.toLocaleString()} blocked this week`;
 
@@ -409,7 +409,7 @@ function renderWeeklyChart(wd) {
     row.className = 'chart-bar-row' + (item.isToday ? ' today' : '');
     const pct = Math.max(6, (item.blocked / max) * 100);
     const dayStats = wd[now.toISOString().split('T')[0]]; // Placeholder key logic, should use actual day keys
-    
+
     row.innerHTML = `
       <div class="chart-day">${item.day}</div>
       <div class="chart-bar-track">
@@ -435,7 +435,7 @@ function renderWeeklyChart(wd) {
  */
 async function getRealUserLocation() {
   if (cachedUserLocation) return cachedUserLocation;
-  
+
   return new Promise((resolve) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -477,45 +477,20 @@ async function getRealUserLocation() {
  */
 function getTrackerLocation(domain) {
   if (!domain) return null;
-  const lowerDomain = domain.toLowerCase();
-  
-  // 1. Check Hardcoded Database (Fastest)
-  const match = TRACKER_LOCATIONS.find(t => lowerDomain.includes(t.domain.toLowerCase()) || t.name.toLowerCase().includes(lowerDomain));
+  const match = TRACKER_LOCATIONS.find(t => domain.toLowerCase().includes(t.domain.toLowerCase()) || t.name.toLowerCase().includes(domain.toLowerCase()));
   if (match) return match;
-  
-  // 2. REGIONAL INTELLIGENCE RESOLVER (Zero-Latency API-less Geo)
-  const regions = [
-    { suffix: '.ru', lat: 55.75, lon: 37.61, city: 'Moscow, RU' },
-    { suffix: '.cn', lat: 39.90, lon: 116.40, city: 'Beijing, CN' },
-    { suffix: '.in', lat: 12.97, lon: 77.59, city: 'Bangalore, IN' },
-    { suffix: '.uk', lat: 51.50, lon: -0.12, city: 'London, UK' },
-    { suffix: '.de', lat: 52.52, lon: 13.40, city: 'Berlin, DE' },
-    { suffix: '.fr', lat: 48.85, lon: 2.35, city: 'Paris, FR' },
-    { suffix: '.br', lat: -23.55, lon: -46.63, city: 'Sao Paulo, BR' },
-    { suffix: '.jp', lat: 35.68, lon: 139.76, city: 'Tokyo, JP' },
-    { suffix: '.au', lat: -33.86, lon: 151.20, city: 'Sydney, AU' },
-    { suffix: '.ca', lat: 43.65, lon: -79.38, city: 'Toronto, CA' },
-    { suffix: '.eu', lat: 50.85, lon: 4.35, city: 'Brussels, EU' }
-  ];
 
-  const regionMatch = regions.find(r => lowerDomain.endsWith(r.suffix));
-  if (regionMatch) {
-    return { ...regionMatch, name: domain, type: 'ad' };
-  }
-
-  // 3. DETERMINISTIC HASH FALLBACK (Spread unknown threats globally)
+  // Deterministic fallback for unknown trackers (spread them around the globe based on domain hash)
   let hash = 0;
   for (let i = 0; i < domain.length; i++) {
     hash = ((hash << 5) - hash) + domain.charCodeAt(i);
     hash |= 0;
   }
-  
-  // Pseudo-random but deterministic coords based on hash
   return {
     name: domain,
-    lat: (Math.abs(hash % 120) - 60), // Spread across -60 to 60 lat
-    lon: (Math.abs((hash * 17) % 360) - 180), // Spread across -180 to 180 lon
-    city: 'Distributed Network',
+    lat: (Math.abs(hash % 120) - 60), // Randomish lat between -60 and 60
+    lon: (Math.abs((hash * 13) % 360) - 180), // Randomish lon between -180 and 180
+    city: 'Distributed Server',
     type: 'ad'
   };
 }
@@ -558,7 +533,7 @@ async function renderPrivacyMap(providedTrackers) {
       currentSiteTrackers = res.currentSiteStats.trackerNames.map(name => getTrackerLocation(name)).filter(t => t);
     }
   }
-  
+
   // If no site trackers, show global trackers from provided list
   const finalTrackers = currentSiteTrackers.length > 0 ? currentSiteTrackers : (providedTrackers || []);
 
@@ -600,71 +575,73 @@ async function renderPrivacyMap(providedTrackers) {
     };
   }
 
-  // ── LIVE SITE SWITCHING: Clear and Re-render ──
-  trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
-  trackerLayers = [];
+  // ── LIVE SITE SWITCHING ENGINE (Zero Latency) ──
+  const currentTrackerCount = finalTrackers.length;
+  const lastTrackerCount = leafletMap._lastTrackerCount || 0;
+  
+  if (currentTrackerCount !== lastTrackerCount || !leafletMap._initialized) {
+    trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
+    trackerLayers = [];
 
-  // ── Add "YOU" Marker ──
-  if (userMarker) leafletMap.removeLayer(userMarker);
-  const locationLabel = userLocation.city ? `YOU — ${userLocation.city}` : 'YOU (Secured)';
+    // Add "YOU" Marker
+    if (userMarker) leafletMap.removeLayer(userMarker);
+    const locationLabel = userLocation.city ? `YOU — ${userLocation.city}` : 'YOU (Secured)';
+    userMarker = L.circleMarker(userPos, {
+      radius: 12, fillColor: '#00ff88', color: '#ffffff', weight: 3, fillOpacity: 1,
+      className: 'user-location-marker user-pulse'
+    }).addTo(leafletMap).bindTooltip(`<b>🟢 ${locationLabel}</b>`, { permanent: true, direction: 'top' });
 
-  userMarker = L.circleMarker(userPos, {
-    radius: 12, fillColor: '#00ff88', color: '#ffffff', weight: 3, fillOpacity: 1,
-    className: 'user-location-marker user-pulse'
-  }).addTo(leafletMap).bindTooltip(`<b>🟢 ${locationLabel}</b>`, { permanent: true, direction: 'top' });
+    // Render Trackers (Instant Match Engine)
+    finalTrackers.forEach((tracker) => {
+      try {
+        const tLat = Number(tracker.lat);
+        const tLon = Number(tracker.lon);
+        if (isNaN(tLat) || isNaN(tLon)) return;
 
-  // ── Render Trackers (Dots and Red Lines) ──
-  finalTrackers.forEach((tracker) => {
-    try {
-      const tLat = Number(tracker.lat);
-      const tLon = Number(tracker.lon);
-      if (isNaN(tLat) || isNaN(tLon)) return;
+        const trackerPos = [tLat, tLon];
+        const marker = L.circleMarker(trackerPos, {
+          radius: 8, fillColor: '#ff3333', color: '#ffffff', weight: 2, fillOpacity: 0.9,
+          className: 'tracker-dot animate-pulse'
+        }).addTo(leafletMap);
 
-      const trackerPos = [tLat, tLon];
-      const markerColor = '#ff3333'; // Strictly red as requested
+        marker.bindTooltip(`<b>🔴 THREAT: ${tracker.name || 'Unknown'}</b><br>📍 ${tracker.city || 'Distributed'}`);
+        trackerLayers.push(marker);
 
-      // The Dot
-      const marker = L.circleMarker(trackerPos, {
-        radius: 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9,
-        className: 'tracker-dot animate-pulse'
-      }).addTo(leafletMap);
+        // Data Pipe Animation
+        const line = L.polyline([userPos, trackerPos], {
+          color: 'rgba(255, 51, 51, 0.7)',
+          weight: 2, dashArray: '10, 10', opacity: 0.8,
+          className: 'tracker-pipe'
+        }).addTo(leafletMap);
+        trackerLayers.push(line);
+      } catch (e) { console.error(e); }
+    });
 
-      marker.bindTooltip(`<b>🔴 THREAT: ${tracker.name || 'Unknown Tracker'}</b><br>📍 Location: ${tracker.city || 'Unknown'}`);
-      trackerLayers.push(marker);
+    leafletMap._lastTrackerCount = currentTrackerCount;
+    leafletMap._initialized = true;
 
-      // The Red Line
-      const line = L.polyline([userPos, trackerPos], {
-        color: 'rgba(255, 51, 51, 0.7)',
-        weight: 2, dashArray: '10, 10', opacity: 0.8,
-        className: 'tracker-pipe'
-      }).addTo(leafletMap);
-      
-      trackerLayers.push(line);
-    } catch (e) {
-      console.error("[DataShadow] Map error:", e);
+    // Auto-zoom to fit the threats on switch
+    if (finalTrackers.length > 0) {
+      const markers = [...trackerLayers.filter(l => l instanceof L.CircleMarker), userMarker];
+      const group = new L.featureGroup(markers);
+      leafletMap.flyToBounds(group.getBounds(), { padding: [100, 100], maxZoom: 5, duration: 1.5 });
     }
-  });
+  }
 
   const label = document.getElementById('map-count-label');
   if (label) label.textContent = currentSiteTrackers.length > 0 ? `LIVE THREATS ON THIS SITE: ${currentSiteTrackers.length}` : `${finalTrackers.length} global server locations detected`;
-
-  // Auto-zoom to fit the threats on switch
-  if (finalTrackers.length > 0) {
-    const markers = [...trackerLayers.filter(l => l instanceof L.CircleMarker), userMarker];
-    const group = new L.featureGroup(markers);
-    leafletMap.flyToBounds(group.getBounds(), { padding: [100, 100], maxZoom: 5 });
-  }
 }
+
 
 // ── Data Breakdown Panel ──
 function renderDataBreakdown(stats) {
   const c = document.getElementById('data-breakdown');
   if (!c) return;
-  
+
   // Get total blocked or default to 0
   const tb = (stats && stats.totalBlocked) ? stats.totalBlocked : 0;
   const ts = (stats && stats.totalDataSaved) ? stats.totalDataSaved : 0;
-  
+
   const categories = [
     { icon: '🚫', label: 'Ad Scripts', val: Math.round(tb * 0.45), pct: 45, color: 'var(--red)' },
     { icon: '📊', label: 'Analytics', val: Math.round(tb * 0.30), pct: 30, color: 'var(--amber)' },
@@ -698,7 +675,7 @@ function renderShieldPerformance(stats, active) {
   const tb = (stats && stats.totalBlocked > 0) ? stats.totalBlocked : 142;
   const sp = (stats && stats.sessionsProtected > 0) ? stats.sessionsProtected : 12;
   const bps = Math.round(tb / sp);
-  
+
   const items = [
     { icon: '⚡', label: 'Shield Status', val: active ? 'ACTIVE' : 'INACTIVE', color: active ? 'var(--green)' : 'var(--red)' },
     { icon: '📈', label: 'Efficiency', val: active ? '99.2%' : '0%', color: 'var(--blue)' },
@@ -735,8 +712,8 @@ function renderActivityLog(log) {
   const recent = log.slice(-25).reverse();
   c.innerHTML = recent.map(item => {
     let ic = 'scan', em = '🔍';
-    if (item.type === 'block')  { ic = 'block';  em = '🛡️'; }
-    if (item.type === 'clean')  { ic = 'clean';  em = '🍪'; }
+    if (item.type === 'block') { ic = 'block'; em = '🛡️'; }
+    if (item.type === 'clean') { ic = 'clean'; em = '🍪'; }
     if (item.type === 'shield') { ic = 'shield'; em = '⚡'; }
     return `
       <div class="activity-item">
