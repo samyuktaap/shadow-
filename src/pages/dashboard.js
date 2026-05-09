@@ -3,26 +3,51 @@
 document.addEventListener('DOMContentLoaded', async () => {
   // Bulletproof context check: Allow dashboard to run even as a local file for demos
   const isExt = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
-  let data = { supabaseUser: { email: 'demo@datashadow.ai' }, supabaseToken: 'demo' };
+  let authData = { supabaseUser: { email: 'demo@datashadow.ai' }, supabaseToken: 'demo' };
 
   if (isExt) {
     try {
-      data = await chrome.storage.local.get(['supabaseUser', 'supabaseToken', 'shieldActive']);
+      authData = await chrome.storage.local.get(['supabaseUser', 'supabaseToken', 'shieldActive']);
     } catch(e) { console.error("Storage error:", e); }
   }
 
   // Only force redirect/close if explicitly in extension mode and missing auth
-  if (isExt && (!data.supabaseUser || !data.supabaseToken)) {
+  if (isExt && (!authData.supabaseUser || !authData.supabaseToken)) {
     alert('Please sign in with Google to view your Privacy Dashboard.');
     if (chrome.tabs) window.close();
-    return;
-  }
     return;
   }
 
   loadDashboardData();
   renderPrivacyMap();
   renderPrivacyTip();
+
+  // Show user info
+  if (authData.supabaseUser) {
+    const emailEl = document.getElementById('user-email');
+    const avatarEl = document.getElementById('user-avatar');
+    if (emailEl) emailEl.textContent = authData.supabaseUser.email;
+    if (avatarEl) avatarEl.textContent = authData.supabaseUser.email[0].toUpperCase();
+  }
+
+  // Logout logic
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.onclick = async () => {
+      await chrome.storage.local.remove(['supabaseToken', 'supabaseUser', 'dashboardStats', 'activityLog']);
+      window.location.reload();
+    };
+  }
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+    if (changes.dashboardStats || changes.activityLog || changes.shieldActive || changes.currentSiteStats) {
+      loadDashboardData();
+    }
+  });
+
+  // TRUE LIVE POLLING: Ensure dashboard is always fresh
+  setInterval(loadDashboardData, 5000);
 
   // Nav links
   const openReport = (e) => {
@@ -109,16 +134,27 @@ function loadDashboardData() {
       cookiesCleaned: 24,
       weeklyData: {}
     };
-      weeklyData: {}
-    };
+    const siteStats = res.currentSiteStats || {};
+
+    // Update Title with current domain
+    const logoEl = document.querySelector('.dash-logo');
+    if (logoEl && siteStats.domain) {
+      logoEl.innerHTML = `<span class="data">Monitoring:</span> <span class="shadow">${siteStats.domain}</span>`;
+    }
 
     // Animate hero counters
     animateCounter('total-blocked', stats.totalBlocked);
     animateCounter('sessions-protected', stats.sessionsProtected);
     animateCounter('cookies-cleaned', stats.cookiesCleaned);
 
+    // Current Site Micro-Stats
+    const currentBlockedEl = document.getElementById('current-site-blocked');
+    if (currentBlockedEl) {
+      currentBlockedEl.textContent = `${siteStats.trackersFound || 0} on this site`;
+      currentBlockedEl.style.color = (siteStats.trackersFound > 0) ? 'var(--red)' : 'rgba(255,255,255,0.4)';
+    }
+
     // Data saved (formatted)
-    const saved = stats.totalDataSaved || 0;
     const saved = stats.totalDataSaved || 0;
     const target = saved > 1048576 ? (saved / 1048576).toFixed(1) : Math.round(saved / 1024);
     const suffix = saved > 1048576 ? ' MB' : ' KB';
@@ -139,11 +175,11 @@ function loadDashboardData() {
 
     const today = new Date().toISOString().split('T')[0];
     const todayS = stats.weeklyData?.[today]?.sessions || 0;
-    const sChange = document.getElementById('sessions-change');
-    if (sChange) sChange.textContent = `↑ ${todayS} today`;
-
-    const cChange = document.getElementById('cookies-change');
-    if (cChange) cChange.textContent = `↑ ${stats.cookiesCleaned || 0} total`;
+    const sessionsChangeEl = document.getElementById('sessions-change');
+    if (sessionsChangeEl) sessionsChangeEl.textContent = `↑ ${todayS} today`;
+    
+    const cookiesChangeEl = document.getElementById('cookies-change');
+    if (cookiesChangeEl) cookiesChangeEl.textContent = `↑ ${stats.cookiesCleaned || 0} total`;
 
     // Update shield badge
     const badge = document.querySelector('.dash-badge');
@@ -159,6 +195,19 @@ function loadDashboardData() {
     renderShieldPerformance(stats, res.shieldActive !== false);
     renderActivityLog(res.activityLog || []);
 
+    // Render Protected Sites List
+    const sitesList = document.getElementById('protected-sites-list');
+    if (sitesList && stats.protectedDomains) {
+      sitesList.innerHTML = stats.protectedDomains.map(site => `
+        <div style="padding: 10px 14px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 600; color: #fff;">${site}</span>
+          <span style="font-size: 10px; color: var(--green);">SECURED ✅</span>
+        </div>
+      `).join('');
+    } else if (sitesList) {
+      sitesList.innerHTML = '<div style="font-size: 11px; color: var(--muted); text-align: center; padding: 20px;">No sites visited yet today.</div>';
+    }
+
     // Market Value Animation
     const marketValue = (stats.totalBlocked || 142) * 0.12 + (stats.cookiesCleaned || 24) * 0.05;
     animateCounterFloat('market-value', marketValue, '$', true);
@@ -166,7 +215,7 @@ function loadDashboardData() {
 
   // EXECUTE: Run the storage fetch or use fallback immediately
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['dashboardStats', 'shieldActive', 'activityLog'], (res) => processData(res));
+    chrome.storage.local.get(['dashboardStats', 'shieldActive', 'activityLog', 'currentSiteStats'], (res) => processData(res));
   } else {
     processData({}); // Trigger fallback demo data immediately
   }

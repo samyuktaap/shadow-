@@ -115,7 +115,7 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 16px;
       margin-bottom: 28px;
     }
@@ -213,7 +213,8 @@
       border-radius: 24px;
       padding: 28px;
       position: relative;
-      overflow: hidden;
+      overflow: visible;
+      min-height: 220px;
       box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 2px 10px rgba(255,255,255,0.05);
       transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       transform-style: preserve-3d;
@@ -430,17 +431,28 @@
     <!-- ── Header ── -->
     <div class="dash-header animate-in">
       <div>
-        <div class="dash-logo"><span class="data">Data</span><span class="shadow">Shadow</span></div>
+        <div class="dash-logo" style="display:flex; align-items:center; gap:10px;">
+          <img src="../../public/icon128.png" alt="DataShadow Logo" style="width:32px; height:32px; filter: drop-shadow(0 0 8px rgba(255,51,51,0.3));">
+          <div><span class="data">Data</span><span class="shadow">Shadow</span></div>
+        </div>
         <div class="dash-badge">
           <span class="badge-dot"></span>
           Shield Active — Protecting You Now
         </div>
       </div>
-      <div class="dash-nav">
-        <a href="#" class="active" id="nav-dashboard">Dashboard</a>
-        <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
-        <a href="#" id="nav-report">Full Report</a>
-        <a href="#" class="cta" id="nav-report-cta">View Privacy Report</a>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <div class="dash-nav">
+          <a href="#" class="active" id="nav-dashboard">Dashboard</a>
+          <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
+          <a href="#" id="nav-report">Full Report</a>
+        </div>
+        <div class="user-profile" id="user-profile" style="display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <div id="user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--red); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: white;">U</div>
+          <div style="display: flex; flex-direction: column;">
+            <span id="user-email" style="font-size: 12px; font-weight: 600; color: #fff;">user@example.com</span>
+            <span id="logout-btn" style="font-size: 10px; color: var(--sub); cursor: pointer; text-decoration: underline;">Sign Out</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -451,6 +463,7 @@
         <div class="stat-value" id="total-blocked">—</div>
         <div class="stat-label">Trackers Blocked</div>
         <div class="stat-change up" id="blocked-change">↑ loading…</div>
+        <div id="current-site-blocked" style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">0 on this site</div>
       </div>
       <div class="stat-card green animate-in delay-2">
         <span class="stat-icon">💾</span>
@@ -469,6 +482,12 @@
         <div class="stat-value" id="cookies-cleaned">—</div>
         <div class="stat-label">Cookies Cleaned</div>
         <div class="stat-change up" id="cookies-change">↑ loading…</div>
+      </div>
+      <div class="stat-card amber animate-in delay-5" style="border-color: var(--amber); box-shadow: 0 0 20px rgba(245,158,11,0.15);">
+        <span class="stat-icon">💎</span>
+        <div class="stat-value" id="market-value" style="color: var(--amber);">$0.00</div>
+        <div class="stat-label">Market Value Saved</div>
+        <div class="stat-change info" style="background: rgba(245,158,11,0.08); color: var(--amber);">LIVE MARKET RATE</div>
       </div>
     </div>
 
@@ -524,6 +543,14 @@
       <div class="panel">
         <div class="panel-title"><span class="icon">📦</span> Data Saved Breakdown</div>
         <div class="data-breakdown" id="data-breakdown">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      
+      <!-- Recent Protected Sites -->
+      <div class="panel">
+        <div class="panel-title"><span class="icon">🛡️</span> Recently Protected</div>
+        <div id="protected-sites-list" style="display: flex; flex-direction: column; gap: 8px;">
           <!-- Populated by JS -->
         </div>
       </div>

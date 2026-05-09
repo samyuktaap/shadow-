@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         userEmail.innerText = user.email;
         loginBtn.style.display = 'none';
         logoutBtn.style.display = 'block';
-        
+
         // Enable premium features
         premiumButtons.forEach(btn => {
           if (btn) {

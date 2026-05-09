@@ -1,4 +1,4 @@
-// DataShadow Background Service Worker — Stats Engine + Shield
+// DataShadow Background Service Worker — Local Stats Engine + Shield
 
 // ── Auth: Catch Google OAuth redirect tokens ────────────────────────────────
 const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
@@ -18,11 +18,22 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
     try {
       // Fetch user info from Supabase
       const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY }
+        headers: { Authorization: `Bearer ${accessToken}`, apikey: SUPABASE_ANON_KEY }
       });
       const user = await res.json();
+
+      // Check if user has changed
+      const { supabaseUser: oldUser } = await chrome.storage.local.get('supabaseUser');
+      if (oldUser && oldUser.id !== user.id) {
+        console.log('[DataShadow Auth] User changed, clearing local data...');
+        await chrome.storage.local.remove(['dashboardStats', 'activityLog']);
+      }
+
       await chrome.storage.local.set({ supabaseToken: accessToken, supabaseUser: user });
       console.log('[DataShadow Auth] ✅ Logged in as:', user.email);
+
+      // INITIAL SYNC: Pull user's existing data from Supabase
+      await pullStatsFromSupabase(user.id, accessToken);
 
       // Close the localhost tab and open dashboard
       chrome.tabs.remove(tabId);
@@ -33,8 +44,77 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   }
 });
 
+/**
+ * Sync local stats to Supabase
+ */
+async function syncStatsToSupabase() {
+  const { supabaseToken, supabaseUser, dashboardStats } = await chrome.storage.local.get(['supabaseToken', 'supabaseUser', 'dashboardStats']);
+  if (!supabaseToken || !supabaseUser) return;
+
+  console.log('[DataShadow Sync] Pushing stats to cloud for:', supabaseUser.email);
+  
+  try {
+    // Upsert stats for this user
+    // We use a table called 'user_stats' (assumed to exist in your Supabase)
+    await fetch(`${SUPABASE_URL}/rest/v1/user_stats`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseToken}`,
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        user_id: supabaseUser.id,
+        stats: dashboardStats,
+        last_sync: new Date().toISOString()
+      })
+    });
+  } catch (err) {
+    console.error('[DataShadow Sync] Sync failed:', err);
+  }
+}
+
+/**
+ * Pull stats from Supabase on login
+ */
+async function pullStatsFromSupabase(userId, token) {
+  try {
+    console.log('[DataShadow Sync] Pulling stats from cloud...');
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/user_stats?user_id=eq.${userId}&select=stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_ANON_KEY
+      }
+    });
+    const data = await res.json();
+    
+    if (data && data.length > 0 && data[0].stats) {
+      console.log('[DataShadow Sync] Found remote stats, merging...');
+      const remoteStats = data[0].stats;
+      const localData = await chrome.storage.local.get('dashboardStats');
+      const localStats = localData.dashboardStats || {};
+
+      // Simple merge: take the higher numbers (or your preferred logic)
+      const mergedStats = {
+        totalBlocked: Math.max(localStats.totalBlocked || 0, remoteStats.totalBlocked || 0),
+        totalDataSaved: Math.max(localStats.totalDataSaved || 0, remoteStats.totalDataSaved || 0),
+        sessionsProtected: Math.max(localStats.sessionsProtected || 0, remoteStats.sessionsProtected || 0),
+        cookiesCleaned: Math.max(localStats.cookiesCleaned || 0, remoteStats.cookiesCleaned || 0),
+        weeklyData: { ...(remoteStats.weeklyData || {}), ...(localStats.weeklyData || {}) }
+      };
+
+      await chrome.storage.local.set({ dashboardStats: mergedStats });
+      console.log('[DataShadow Sync] ✅ Sync complete.');
+    }
+  } catch (err) {
+    console.warn('[DataShadow Sync] No remote stats found or pull failed:', err);
+  }
+}
+
 // AUTO-RESTORE: Re-enable shield on browser start if it was ON
 chrome.runtime.onStartup.addListener(async () => {
+  await ensureStatsInitialized();
   const { shieldActive } = await getStorage('shieldActive');
   if (shieldActive) {
     enableShadowShield();
@@ -42,15 +122,11 @@ chrome.runtime.onStartup.addListener(async () => {
   }
 });
 
-// Also restore on extension reload/install — and seed demo stats if empty
+// Also restore on extension reload/install and initialize local stats store
 chrome.runtime.onInstalled.addListener(async (details) => {
-  const { shieldActive, dashboardStats } = await getStorage(['shieldActive', 'dashboardStats']);
+  const { shieldActive } = await getStorage(['shieldActive']);
   if (shieldActive) enableShadowShield();
-
-  // Seed stats if they don't exist yet (first install or first time with dashboard)
-  if (!dashboardStats || !dashboardStats.totalBlocked) {
-    await seedInitialStats();
-  }
+  await ensureStatsInitialized();
 
   // Show onboarding on fresh install
   if (details.reason === 'install') {
@@ -58,74 +134,65 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
+// TRUE LIVE MONITOR: Listen for actual network blocks
+if (chrome.declarativeNetRequest.onRuleMatchedDebug) {
+  chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
+    console.log('[DataShadow Heartbeat] 🛡️ Network block matched:', info.request.url);
+    chrome.tabs.get(info.tabId, (tab) => {
+      if (tab && tab.url && tab.url.startsWith('http')) {
+        const domain = new URL(tab.url).hostname;
+        recordBlockEvent(1, domain);
+      }
+    });
+  });
+}
+
 // ── Stats Engine ─────────────────────────────────────────────────────────────
 
-// Seed realistic demo stats so the dashboard isn't empty on first open
-async function seedInitialStats() {
-  const now = new Date();
-  const weeklyData = {};
-  const activityLog = [];
-
-  // Seed 7 days of plausible data
-  const sampleDomains = [
-    'news.ycombinator.com','reddit.com','cnn.com','bbc.com',
-    'techcrunch.com','nytimes.com','theguardian.com'
-  ];
-  const sampleTrackers = [
-    'Google Analytics','Facebook Pixel','Hotjar','Criteo','DoubleClick',
-    'New Relic','Amplitude','Mixpanel','Taboola','BlueKai'
-  ];
-
-  let totalBlocked = 0;
-  let totalDataSaved = 0;
-  let totalCookies = 0;
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().split('T')[0];
-    const blocked = Math.floor(Math.random() * 80) + 40; // 40–120 per day
-    const dataSaved = blocked * (Math.floor(Math.random() * 15000) + 8000); // 8–23 KB per block
-    const sessions = Math.floor(Math.random() * 8) + 3;
-    const cookies = Math.floor(Math.random() * 30) + 10;
-
-    weeklyData[key] = { blocked, dataSaved, sessions, cookies };
-    totalBlocked += blocked;
-    totalDataSaved += dataSaved;
-    totalCookies += cookies;
-
-    // Add activity log entries for that day
-    const numEntries = Math.floor(Math.random() * 4) + 2;
-    for (let e = 0; e < numEntries; e++) {
-      const domain = sampleDomains[Math.floor(Math.random() * sampleDomains.length)];
-      const tracker = sampleTrackers[Math.floor(Math.random() * sampleTrackers.length)];
-      const entryTypes = [
-        { type: 'block', message: `Blocked <strong>${tracker}</strong> on ${domain}` },
-        { type: 'clean', message: `Cleaned <strong>${Math.floor(Math.random()*12)+2} cookies</strong> from ${domain}` },
-        { type: 'shield', message: `Shadow Shield stopped <strong>${Math.floor(Math.random()*5)+1} trackers</strong> on ${domain}` },
-        { type: 'scan',   message: `Scanned <strong>${domain}</strong> — ${Math.floor(Math.random()*3)+1} threats detected` },
-      ];
-      const entry = entryTypes[Math.floor(Math.random() * entryTypes.length)];
-      // Spread entries across that day
-      const entryTime = d.getTime() + Math.floor(Math.random() * 86400000);
-      activityLog.push({ ...entry, timestamp: entryTime });
-    }
-  }
-
-  activityLog.sort((a, b) => a.timestamp - b.timestamp);
-
-  const dashboardStats = {
-    totalBlocked,
-    totalDataSaved,
-    sessionsProtected: Math.floor(totalBlocked / 6),
-    cookiesCleaned: totalCookies,
-    weeklyData
+function getDefaultDashboardStats() {
+  return {
+    totalBlocked: 0,
+    totalDataSaved: 0,
+    sessionsProtected: 0,
+    cookiesCleaned: 0,
+    protectedDomains: [],
+    weeklyData: {}
   };
+}
 
-  await new Promise(r => chrome.storage.local.set({ dashboardStats, activityLog, shieldActive: true }, r));
-  // Auto-enable shield so users see it working immediately
-  enableShadowShield();
-  console.log('[DataShadow] Demo stats seeded. Dashboard is ready.');
+function normalizeStats(stats = {}) {
+  return {
+    ...getDefaultDashboardStats(),
+    ...stats,
+    weeklyData: stats.weeklyData || {}
+  };
+}
+
+function trimWeeklyData(weeklyData = {}) {
+  const keys = Object.keys(weeklyData).sort();
+  const keep = keys.slice(-7);
+  return keep.reduce((acc, key) => {
+    acc[key] = weeklyData[key];
+    return acc;
+  }, {});
+}
+
+function ensureTodayBucket(stats) {
+  const key = todayKey();
+  if (!stats.weeklyData[key]) {
+    stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+  }
+}
+
+async function ensureStatsInitialized() {
+  const data = await getStorage(['dashboardStats', 'activityLog']);
+  const normalized = normalizeStats(data.dashboardStats);
+  normalized.weeklyData = trimWeeklyData(normalized.weeklyData);
+  ensureTodayBucket(normalized);
+  await new Promise((resolve) => chrome.storage.local.set({
+    dashboardStats: normalized,
+    activityLog: Array.isArray(data.activityLog) ? data.activityLog : []
+  }, resolve));
 }
 
 // Get today's date key (YYYY-MM-DD)
@@ -134,70 +201,82 @@ function todayKey() {
 }
 
 // Record a block event (called when shield is on and trackers are detected)
+let blockQueue = 0;
+let blockTimeout = null;
+
 async function recordBlockEvent(count, domain) {
   if (count <= 0) return;
-  const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
-
-  const stats = {
-    totalBlocked: 0, totalDataSaved: 0,
-    sessionsProtected: 0, cookiesCleaned: 0,
-    weeklyData: {}, ...dashboardStats
-  };
-
-  const key = todayKey();
-  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
-
-  // Average tracker payload: ~15 KB each (scripts + pixels)
-  const bytesSaved = count * (12000 + Math.floor(Math.random() * 8000));
-
-  stats.totalBlocked += count;
-  stats.totalDataSaved += bytesSaved;
-  stats.weeklyData[key].blocked += count;
-  stats.weeklyData[key].dataSaved += bytesSaved;
-
-  // Activity log entry
-  const trackerNames = ['Google Analytics','Facebook Pixel','Hotjar','Criteo','DoubleClick',
-    'New Relic','Amplitude','Mixpanel','Taboola','BlueKai','AppNexus','Rubicon'];
-  const tracker = trackerNames[Math.floor(Math.random() * trackerNames.length)];
-  const newEntry = {
-    type: 'block',
-    message: `Blocked <strong>${count} tracker${count > 1 ? 's' : ''}</strong> (incl. ${tracker}) on ${domain}`,
-    timestamp: Date.now()
-  };
-
-  // Keep last 100 activity entries
-  const updatedLog = [...activityLog, newEntry].slice(-100);
-
-  await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
+  
+  blockQueue += count;
+  
+  // Throttle updates to avoid storage thrashing and race conditions
+  if (blockTimeout) return;
+  
+  blockTimeout = setTimeout(async () => {
+    const currentCount = blockQueue;
+    blockQueue = 0;
+    blockTimeout = null;
+    
+    await ensureStatsInitialized();
+    const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
+    const stats = normalizeStats(dashboardStats);
+  
+    const key = todayKey();
+    ensureTodayBucket(stats);
+    stats.weeklyData = trimWeeklyData(stats.weeklyData);
+  
+    console.log(`[DataShadow Engine] Recording ${currentCount} blocks for ${domain}`);
+  
+    const bytesSaved = currentCount * 16000;
+    stats.totalBlocked += currentCount;
+    stats.totalDataSaved += bytesSaved;
+    stats.weeklyData[key].blocked += currentCount;
+    stats.weeklyData[key].dataSaved += bytesSaved;
+  
+    const newEntry = {
+      type: 'block',
+      message: `Blocked <strong>${currentCount} tracker${currentCount > 1 ? 's' : ''}</strong> on ${domain}`,
+      timestamp: Date.now()
+    };
+  
+    const updatedLog = [...activityLog, newEntry].slice(-100);
+    await chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog });
+    syncStatsToSupabase();
+  }, 100); // 100ms batching
 }
 
 // Record a session (called when analysis detects an active browsing session)
 async function recordSession(domain) {
+  await ensureStatsInitialized();
   const { dashboardStats = {} } = await getStorage('dashboardStats');
-  const stats = {
-    totalBlocked: 0, totalDataSaved: 0,
-    sessionsProtected: 0, cookiesCleaned: 0,
-    weeklyData: {}, ...dashboardStats
-  };
+  const stats = normalizeStats(dashboardStats);
   const key = todayKey();
-  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+  ensureTodayBucket(stats);
+  stats.weeklyData = trimWeeklyData(stats.weeklyData);
 
   stats.sessionsProtected += 1;
   stats.weeklyData[key].sessions += 1;
+  
+  // Track unique domain history
+  if (!stats.protectedDomains) stats.protectedDomains = [];
+  if (!stats.protectedDomains.includes(domain)) {
+    stats.protectedDomains.unshift(domain);
+    stats.protectedDomains = stats.protectedDomains.slice(0, 10); // Keep last 10
+  }
+  
   await new Promise(r => chrome.storage.local.set({ dashboardStats: stats }, r));
+  syncStatsToSupabase();
 }
 
 // Record cookie cleanup event
 async function recordCookieClean(count, domain) {
   if (count <= 0) return;
+  await ensureStatsInitialized();
   const { dashboardStats = {}, activityLog = [] } = await getStorage(['dashboardStats', 'activityLog']);
-  const stats = {
-    totalBlocked: 0, totalDataSaved: 0,
-    sessionsProtected: 0, cookiesCleaned: 0,
-    weeklyData: {}, ...dashboardStats
-  };
+  const stats = normalizeStats(dashboardStats);
   const key = todayKey();
-  if (!stats.weeklyData[key]) stats.weeklyData[key] = { blocked: 0, dataSaved: 0, sessions: 0, cookies: 0 };
+  ensureTodayBucket(stats);
+  stats.weeklyData = trimWeeklyData(stats.weeklyData);
 
   stats.cookiesCleaned += count;
   stats.weeklyData[key].cookies = (stats.weeklyData[key].cookies || 0) + count;
@@ -209,6 +288,7 @@ async function recordCookieClean(count, domain) {
   };
   const updatedLog = [...activityLog, newEntry].slice(-100);
   await new Promise(r => chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog }, r));
+  syncStatsToSupabase();
 }
 
 // Record a shield toggle event in activity log
@@ -589,8 +669,17 @@ async function analyzeDomain(tabId, url) {
       marketValue: parseFloat(estimatedValue.toFixed(2)) // Added for hackathon "Wow" factor
     };
 
-    // Save to storage so report.html can read it
-    chrome.storage.local.set({ lastAnalysis: analysisData });
+    // Save to storage so dashboard and popup can read it
+    chrome.storage.local.set({ 
+      lastAnalysis: analysisData,
+      currentSiteStats: analysisData 
+    });
+
+    // NEW: Record session and blocks in global stats
+    await recordSession(domain);
+    if (shieldActive && trackersFound > 0) {
+      await recordBlockEvent(trackersFound, domain);
+    }
 
     // Try to send message immediately
     chrome.tabs.sendMessage(tabId, { type: 'DATA_SHADOW_ANALYSIS', data: analysisData })
@@ -741,13 +830,12 @@ async function disableShadowShield() {
 async function nukeSiteData(pageUrl) {
   const domain = new URL(pageUrl).hostname;
   
-  // 1. Nuke Cookies
-  const cookies = await chrome.cookies.getAll({ url: pageUrl });
+  // 1. Nuke Cookies (Improved domain matching)
+  const cookies = await chrome.cookies.getAll({ domain: domain });
   for (let cookie of cookies) {
-    let cleanDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
     const protocol = cookie.secure ? "https:" : "http:";
-    const url = `${protocol}//${cleanDomain}${cookie.path}`;
-    await chrome.cookies.remove({ url, name: cookie.name });
+    const cookieUrl = `${protocol}//${cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain}${cookie.path}`;
+    await chrome.cookies.remove({ url: cookieUrl, name: cookie.name }).catch(() => {});
   }
 
   // 2. Clear Storage & Cache via Scripting API
@@ -788,26 +876,26 @@ async function handleCookieCleanup(pageUrl) {
 // Trigger Analysis on Page Load
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
-    const domain = new URL(tab.url).hostname;
-    
-    // Skip analysis/blocking if site is whitelisted
-    const { whitelistedSites = [] } = await getStorage('whitelistedSites');
-    if (whitelistedSites.includes(domain)) {
-      return; // Do nothing for whitelisted sites
-    }
-
-    analyzeDomain(tabId, tab.url);
-
-    // Record session + block events when shield is active
-    const { shieldActive } = await getStorage('shieldActive');
-    if (shieldActive) {
-      await recordSession(domain);
-      // Estimate blocks: cookies / 2.5 rounded, at least 1 for known-tracker pages
-      const cookies = await chrome.cookies.getAll({ url: tab.url });
-      const estimated = Math.floor(cookies.length / 2.5);
-      if (estimated > 0) {
-        await recordBlockEvent(estimated, domain);
-      }
-    }
+    processTabAnalysis(tabId, tab.url);
   }
 });
+
+// Trigger Analysis on Tab Switch
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  const tab = await chrome.tabs.get(activeInfo.tabId);
+  if (tab.url && tab.url.startsWith('http')) {
+    processTabAnalysis(activeInfo.tabId, tab.url);
+  }
+});
+
+async function processTabAnalysis(tabId, url) {
+  const domain = new URL(url).hostname;
+  
+  // Skip analysis/blocking if site is whitelisted
+  const { whitelistedSites = [] } = await getStorage('whitelistedSites');
+  if (whitelistedSites.includes(domain)) {
+    return; // Do nothing for whitelisted sites
+  }
+
+  analyzeDomain(tabId, url);
+}

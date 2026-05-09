@@ -10,6 +10,7 @@
     "activeTab",
     "scripting",
     "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
     "identity"
   ],
   "host_permissions": [
