@@ -17,10 +17,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dashboardNav = document.getElementById('nav-dashboard');
   const reportNav = document.getElementById('nav-report');
   const proNav = document.getElementById('nav-pro');
+  const whatifNav = document.getElementById('nav-whatif');
 
   if (dashboardNav) dashboardNav.onclick = (e) => { e.preventDefault(); navigateTo('dashboard'); };
   if (reportNav) reportNav.onclick = (e) => { e.preventDefault(); navigateTo('report'); };
   if (proNav) proNav.onclick = (e) => { e.preventDefault(); navigateTo('pro'); };
+  if (whatifNav) whatifNav.onclick = (e) => { e.preventDefault(); navigateTo('whatif'); };
 
   // Bulletproof context check: Allow dashboard to run even as a local file for demos
   const isExt = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;

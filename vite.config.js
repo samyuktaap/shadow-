@@ -19,6 +19,12 @@ function copyExtensionFiles() {
       fs.copyFileSync('src/scripts/fingerprinter-shield.js', `${scriptsDir}/fingerprinter-shield.js`);
       fs.copyFileSync('src/scripts/telemetry.js', `${scriptsDir}/telemetry.js`);
 
+      // Copy page JS files that aren't bundled
+      const pagesDir = 'dist/src/pages';
+      if (fs.existsSync('src/pages/whatif.js')) {
+        fs.copyFileSync('src/pages/whatif.js', `${pagesDir}/whatif.js`);
+      }
+
       // Copy Leaflet library (CRITICAL for map)
       const libDir = 'dist/src/lib';
       if (!fs.existsSync(libDir)) fs.mkdirSync(libDir, { recursive: true });
@@ -45,6 +51,7 @@ export default defineConfig({
         onboard: resolve(__dirname, 'src/pages/onboard.html'),
         report: resolve(__dirname, 'src/pages/report.html'),
         popup: resolve(__dirname, 'src/pages/popup.html'),
+        whatif: resolve(__dirname, 'src/pages/whatif.html'),
       },
     },
   },

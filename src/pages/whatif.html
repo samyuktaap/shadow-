@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataShadow — What-If Privacy Simulation</title>
+  <meta name="description" content="Simulate privacy improvements and visualize how your data exposure changes in real-time.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:    #ff3333;
+      --red-2:  #ff6666;
+      --green:  #00ff88;
+      --blue:   #38bdf8;
+      --purple: #a78bfa;
+      --amber:  #f59e0b;
+      --bg:     #050508;
+      --surface:#0f1117;
+      --card:   #111318;
+      --border: rgba(255,255,255,0.06);
+      --muted:  #475569;
+      --sub:    #64748b;
+      --text:   #e2e8f0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: #050508;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      filter: blur(100px);
+      z-index: 0;
+      pointer-events: none;
+      animation: floatOrbs 20s ease-in-out infinite alternate;
+    }
+    body::before {
+      background: radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 60%);
+      top: -10%; left: -10%;
+    }
+    body::after {
+      background: radial-gradient(circle, rgba(0,255,136,0.10) 0%, transparent 60%);
+      bottom: -10%; right: -10%;
+      animation-delay: -10s;
+    }
+    @keyframes floatOrbs {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(50px, 50px) scale(1.2); }
+    }
+
+    .page {
+      position: relative; z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+
+    /* ── Header ── */
+    .dash-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dash-logo { font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+    .dash-logo .data { color: var(--purple); }
+    .dash-logo .shadow { color: #fff; }
+    .dash-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(167,139,250,0.08);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px; font-weight: 600;
+      color: var(--purple);
+      margin-top: 6px;
+    }
+    .badge-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--purple);
+      box-shadow: 0 0 10px rgba(167,139,250,0.5);
+      animation: pulse-dot 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(167,139,250,0.4); }
+      70% { transform: scale(1.1); opacity: 0.8; box-shadow: 0 0 0 10px rgba(167,139,250,0); }
+      100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(167,139,250,0); }
+    }
+    .dash-nav { display: flex; gap: 8px; }
+    .dash-nav a {
+      color: var(--sub); text-decoration: none;
+      font-size: 13px; font-weight: 500;
+      padding: 8px 18px; border-radius: 10px;
+      transition: all 0.2s; border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .dash-nav a:hover, .dash-nav a.active { color: #fff; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+    .pro-tag { display: inline-block; background: linear-gradient(135deg, rgba(167,139,250,0.2), rgba(56,189,248,0.2)); color: #a78bfa; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+
+    /* ── Panel ── */
+    .panel {
+      background: rgba(20, 22, 35, 0.65);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border-left: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 28px;
+      position: relative;
+      overflow: visible;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 2px 10px rgba(255,255,255,0.05);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .panel:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.7), inset 0 2px 20px rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.25);
+    }
+    .panel-title {
+      font-size: 16px; font-weight: 800;
+      margin-bottom: 24px;
+      display: flex; align-items: center; gap: 10px;
+      color: #fff; text-shadow: 0 2px 10px rgba(255,255,255,0.2);
+    }
+
+    /* ── Main Layout ── */
+    .sim-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    /* ── Score Hero ── */
+    .score-hero {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .score-box {
+      flex: 1;
+      background: rgba(20, 22, 35, 0.65);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 24px;
+      text-align: center;
+      transition: all 0.5s;
+    }
+    .score-box .score-label {
+      font-size: 10px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--sub);
+      margin-bottom: 10px;
+    }
+    .score-box .score-number {
+      font-size: 56px; font-weight: 900;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .score-box .score-sub {
+      font-size: 12px; font-weight: 600;
+    }
+    .score-box.before { border-color: rgba(255,51,51,0.3); }
+    .score-box.before .score-number { color: var(--red); }
+    .score-box.before .score-sub { color: var(--red-2); }
+    .score-box.after { border-color: rgba(0,255,136,0.3); }
+    .score-box.after .score-number { color: var(--green); }
+    .score-box.after .score-sub { color: #00cc6e; }
+    .score-box.reduction {
+      border-color: rgba(167,139,250,0.3);
+      background: linear-gradient(135deg, rgba(167,139,250,0.08), rgba(56,189,248,0.05));
+    }
+    .score-box.reduction .score-number { color: var(--purple); }
+    .score-box.reduction .score-sub { color: var(--blue); }
+
+    /* ── Toggle Controls ── */
+    .toggle-list { display: flex; flex-direction: column; gap: 10px; }
+    .toggle-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 14px;
+      transition: all 0.3s;
+    }
+    .toggle-item:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.1);
+    }
+    .toggle-item.active {
+      border-color: rgba(0,255,136,0.3);
+      background: rgba(0,255,136,0.04);
+    }
+    .toggle-label {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .toggle-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      background: rgba(255,255,255,0.05);
+    }
+    .toggle-text { font-size: 13px; font-weight: 600; color: #fff; }
+    .toggle-desc { font-size: 10px; color: var(--sub); margin-top: 2px; }
+    .toggle-impact {
+      font-size: 10px; font-weight: 700;
+      color: var(--green);
+      background: rgba(0,255,136,0.08);
+      padding: 3px 8px; border-radius: 6px;
+      margin-right: 12px;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      width: 44px; height: 24px;
+      cursor: pointer;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      left: 3px; bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    .switch input:checked + .slider {
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(0,255,136,0.4);
+    }
+    .switch input:checked + .slider::before {
+      transform: translateX(20px);
+    }
+
+    /* ── Radar Chart Canvas ── */
+    #radar-canvas {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* ── Insight Box ── */
+    .insight-box {
+      margin-top: 16px;
+      padding: 16px 20px;
+      background: rgba(167,139,250,0.06);
+      border: 1px solid rgba(167,139,250,0.15);
+      border-radius: 14px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #c4b5fd;
+      min-height: 60px;
+    }
+    .insight-box strong { color: #fff; }
+
+    /* ── Reset Button ── */
+    .reset-btn {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      background: rgba(255,51,51,0.08);
+      border: 1px solid rgba(255,51,51,0.2);
+      border-radius: 14px;
+      color: var(--red);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+    .reset-btn:hover {
+      background: rgba(255,51,51,0.15);
+      border-color: rgba(255,51,51,0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255,51,51,0.2);
+    }
+
+    /* ── Domain Header ── */
+    .domain-header {
+      text-align: center;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+    }
+    .domain-name {
+      font-size: 22px; font-weight: 900;
+      color: #fff;
+    }
+    .domain-sub {
+      font-size: 11px; color: var(--sub);
+      margin-top: 4px;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fadeSlideUp 0.55s ease-out both;
+    }
+    .delay-1 { animation-delay: 0.08s; }
+    .delay-2 { animation-delay: 0.16s; }
+    .delay-3 { animation-delay: 0.24s; }
+    .delay-4 { animation-delay: 0.32s; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .sim-layout { grid-template-columns: 1fr; }
+      .score-hero { flex-direction: column; }
+    }
+
+    /* ── Chart Legend ── */
+    .chart-legend {
+      display: flex; justify-content: center; gap: 30px;
+      margin-top: 16px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600;
+    }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <!-- ── Header ── -->
+    <div class="dash-header animate-in">
+      <div>
+        <div class="dash-logo" style="display:flex; align-items:center; gap:10px;">
+          <img src="../../public/icon128.png" alt="DataShadow Logo" style="width:32px; height:32px; filter: drop-shadow(0 0 8px rgba(167,139,250,0.3));">
+          <div><span class="data">What-If</span><span class="shadow"> Simulator</span></div>
+        </div>
+        <div class="dash-badge">
+          <span class="badge-dot"></span>
+          Privacy Impact Simulation Engine
+        </div>
+      </div>
+      <div class="dash-nav">
+        <a href="#" id="nav-dashboard">Dashboard</a>
+        <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
+        <a href="#" class="active" id="nav-whatif">What-If</a>
+        <a href="#" id="nav-report">Full Report</a>
+      </div>
+    </div>
+
+    <!-- ── Domain Under Analysis ── -->
+    <div class="domain-header animate-in delay-1">
+      <div class="domain-name" id="sim-domain">Loading Active Website...</div>
+      <div class="domain-sub">Real-time exposure analysis from your browser telemetry</div>
+    </div>
+
+    <!-- ── Score Comparison Hero ── -->
+    <div class="score-hero animate-in delay-2">
+      <div class="score-box before">
+        <div class="score-label">Current Exposure</div>
+        <div class="score-number" id="score-before">0</div>
+        <div class="score-sub">DETECTED RISK</div>
+      </div>
+      <div class="score-box after">
+        <div class="score-label">Simulated Exposure</div>
+        <div class="score-number" id="score-after">0</div>
+        <div class="score-sub">WITH PROTECTIONS</div>
+      </div>
+      <div class="score-box reduction">
+        <div class="score-label">Exposure Reduction</div>
+        <div class="score-number" id="score-reduction">0%</div>
+        <div class="score-sub">PRIVACY IMPROVEMENT</div>
+      </div>
+    </div>
+
+    <!-- ── Main Sim Layout ── -->
+    <div class="sim-layout">
+      <!-- Left: Controls -->
+      <div class="panel animate-in delay-3">
+        <div class="panel-title">
+          <span>🎛️</span>
+          Simulation Controls
+        </div>
+        <div class="toggle-list" id="toggle-list">
+          <!-- Populated by JS -->
+        </div>
+        <button class="reset-btn" id="reset-btn">🔄 Reset Simulation</button>
+      </div>
+
+      <!-- Right: Radar Chart -->
+      <div class="panel animate-in delay-4">
+        <div class="panel-title">
+          <span>📊</span>
+          Exposure Radar — Before vs After
+        </div>
+        <canvas id="radar-canvas" width="480" height="480"></canvas>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background: rgba(255,51,51,0.7);"></div>
+            Current Exposure
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: rgba(0,255,136,0.7);"></div>
+            Simulated Exposure
+          </div>
+        </div>
+        <div class="insight-box" id="insight-box">
+          Toggle protections on the left to see how your privacy exposure changes in real-time.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="whatif.js"></script>
+</body>
+</html>
