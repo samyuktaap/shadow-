@@ -1,7 +1,8 @@
 // DataShadow Value Dashboard — Enhanced Logic
 let leafletMap = null;
 let userMarker = null;
-let trackerLayers = []; // Track all added layers so we can clear them on refresh
+let trackerLayers = [];
+let cachedUserLocation = null; // Zero Latency Cache
 
 document.addEventListener('DOMContentLoaded', async () => {
   // ── Nav links (Attach early so they work even if auth fails) ──
@@ -452,42 +453,65 @@ function renderWeeklyChart(wd) {
  * Falls back to IP-based geolocation if user denies permission
  */
 async function getRealUserLocation() {
+  if (cachedUserLocation) return cachedUserLocation;
+  
   return new Promise((resolve) => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log('[DataShadow Map] GPS Location acquired:', position.coords.latitude, position.coords.longitude);
-          resolve({
+          cachedUserLocation = {
             lat: position.coords.latitude,
             lon: position.coords.longitude,
             source: 'gps'
-          });
+          };
+          resolve(cachedUserLocation);
         },
         async (error) => {
-          console.log('[DataShadow Map] GPS denied or failed:', error.message, 'Falling back to IP geolocation...');
           try {
-            // Using ipapi.co as it supports HTTPS and is more reliable for extensions
             const res = await fetch('https://ipapi.co/json/');
             const data = await res.json();
-            console.log('[DataShadow Map] IP Location acquired:', data.latitude, data.longitude, data.city);
-            resolve({
+            cachedUserLocation = {
               lat: data.latitude,
               lon: data.longitude,
               city: data.city,
               country: data.country_name,
               source: 'ip'
-            });
+            };
+            resolve(cachedUserLocation);
           } catch (e) {
-            console.warn('[DataShadow Map] IP geo also failed, using fallback center');
             resolve({ lat: 20, lon: 0, source: 'fallback' });
           }
         },
-        { timeout: 8000, maximumAge: 60000 }
+        { timeout: 5000, maximumAge: 3600000 }
       );
     } else {
       resolve({ lat: 20, lon: 77, city: 'India', country: 'IN', source: 'fallback' });
     }
   });
+}
+
+/**
+ * INSTANT MATCH ENGINE
+ * Zero-latency lookup for tracker locations based on domain names.
+ */
+function getTrackerLocation(domain) {
+  if (!domain) return null;
+  const match = TRACKER_LOCATIONS.find(t => domain.toLowerCase().includes(t.domain.toLowerCase()) || t.name.toLowerCase().includes(domain.toLowerCase()));
+  if (match) return match;
+  
+  // Deterministic fallback for unknown trackers (spread them around the globe based on domain hash)
+  let hash = 0;
+  for (let i = 0; i < domain.length; i++) {
+    hash = ((hash << 5) - hash) + domain.charCodeAt(i);
+    hash |= 0;
+  }
+  return {
+    name: domain,
+    lat: (Math.abs(hash % 120) - 60), // Randomish lat between -60 and 60
+    lon: (Math.abs((hash * 13) % 360) - 180), // Randomish lon between -180 and 180
+    city: 'Distributed Server',
+    type: 'ad'
+  };
 }
 
 /**
@@ -510,43 +534,32 @@ async function getRealGeoTrackers() {
 /**
  * STEP 3: Render the map with REAL data
  */
-async function renderPrivacyMap() {
+async function renderPrivacyMap(providedTrackers) {
   const container = document.getElementById('map-container');
   if (!container || !window.L) return;
 
-  // Fetch real data in parallel
-  const [userLocation, geoTrackers] = await Promise.all([
-    getRealUserLocation(),
-    getRealGeoTrackers()
-  ]);
+  // 1. Get User Location (Fast from cache)
+  const userLocation = await getRealUserLocation();
+  const userLat = (userLocation.lat === 20 && userLocation.lon === 0) ? 20.59 : userLocation.lat;
+  const userLon = (userLocation.lat === 20 && userLocation.lon === 0) ? 78.96 : userLocation.lon;
+  const userPos = [userLat, userLon];
 
-  // SMART LOAD: Use real data if available, otherwise use seed data immediately (like localhost)
-  let finalTrackers = geoTrackers.filter(t => t.lat && t.lon && t.lat !== 0);
-  let isPassive = false;
-
-  if (finalTrackers.length === 0) {
-    isPassive = true;
-    finalTrackers = [
-      { name: 'Google Ads', domain: 'doubleclick.net', lat: 37.4, lon: -122.1, city: 'California, US' },
-      { name: 'Facebook Tracker', domain: 'facebook.com', lat: 37.5, lon: -122.1, city: 'California, US' },
-      { name: 'Amazon Cloud', domain: 'aws.amazon.com', lat: 47.6, lon: -122.3, city: 'Seattle, US' },
-      { name: 'Azure Core', domain: 'microsoft.com', lat: 53.3, lon: -6.2, city: 'Dublin, Ireland' }
-    ];
-    
-    const label = document.getElementById('map-count-label');
-    if (label) label.textContent = "Establishing secure connection... (Seed Mode)";
-    
-    // Background wait to see if real data arrives (doesn't block rendering)
-    setTimeout(async () => {
-      const fresh = await getRealGeoTrackers();
-      if (fresh.length > 0) renderPrivacyMap();
-    }, 5000);
+  // 2. Resolve Tracker Locations using INSTANT MATCH ENGINE
+  let currentSiteTrackers = [];
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    const res = await new Promise(r => chrome.storage.local.get(['currentSiteStats'], r));
+    if (res.currentSiteStats && res.currentSiteStats.trackerNames) {
+      currentSiteTrackers = res.currentSiteStats.trackerNames.map(name => getTrackerLocation(name)).filter(t => t);
+    }
   }
+  
+  // If no site trackers, show global trackers from provided list
+  const finalTrackers = currentSiteTrackers.length > 0 ? currentSiteTrackers : (providedTrackers || []);
 
   // ── Initialize Map (only once) ──
   if (!leafletMap) {
     leafletMap = L.map('map-container', {
-      center: [userLocation.lat, userLocation.lon],
+      center: userPos,
       zoom: 3,
       zoomControl: false,
       attributionControl: false,
@@ -570,127 +583,71 @@ async function renderPrivacyMap() {
 
     if (zIn) zIn.onclick = () => leafletMap.zoomIn();
     if (zOut) zOut.onclick = () => leafletMap.zoomOut();
-    if (zReset) zReset.onclick = () => leafletMap.flyTo([userLocation.lat, userLocation.lon], 4);
+    if (zReset) zReset.onclick = () => leafletMap.flyTo(userPos, 4);
     if (zFit) zFit.onclick = () => {
       const markers = trackerLayers.filter(l => l instanceof L.CircleMarker);
       if (userMarker) markers.push(userMarker);
-      
       if (markers.length > 0) {
         const group = new L.featureGroup(markers);
         leafletMap.flyToBounds(group.getBounds(), { padding: [80, 80], maxZoom: 8 });
       }
     };
-
-    // ── AUTO-LOCATE ON START ──
-    setTimeout(() => {
-      const markers = trackerLayers.filter(l => l instanceof L.CircleMarker);
-      if (userMarker) markers.push(userMarker);
-      if (markers.length > 0) {
-        const group = new L.featureGroup(markers);
-        leafletMap.flyToBounds(group.getBounds(), { padding: [100, 100], maxZoom: 5 });
-      }
-    }, 1500);
-  } else {
-    trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
-    trackerLayers = [];
   }
+
+  // ── LIVE SITE SWITCHING: Clear and Re-render ──
+  trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
+  trackerLayers = [];
 
   // ── Add "YOU" Marker ──
   if (userMarker) leafletMap.removeLayer(userMarker);
-  
-  // If location is still 20, 0 (fallback), try one more time to fetch it
-  if (userLocation.lat === 20 && userLocation.lon === 0) {
-    console.log("[DataShadow] Retrying location...");
-  }
-
   const locationLabel = userLocation.city ? `YOU — ${userLocation.city}` : 'YOU (Secured)';
-  const userLat = (userLocation.lat === 20 && userLocation.lon === 0) ? 20.59 : userLocation.lat;
-  const userLon = (userLocation.lat === 20 && userLocation.lon === 0) ? 78.96 : userLocation.lon;
 
-  userMarker = L.circleMarker([userLat, userLon], {
+  userMarker = L.circleMarker(userPos, {
     radius: 12, fillColor: '#00ff88', color: '#ffffff', weight: 3, fillOpacity: 1,
-    className: 'user-location-marker user-pulse' // Added glowing pulse
+    className: 'user-location-marker user-pulse'
   }).addTo(leafletMap).bindTooltip(`<b>🟢 ${locationLabel}</b>`, { permanent: true, direction: 'top' });
 
-// ── Render Trackers (Piping) ──
-  const userPos = [userLat, userLon];
-  
-  // Prevent unnecessary re-rendering and animation resets if tracker count hasn't changed
-  if (window.lastTrackerCount === finalTrackers.length && leafletMap) {
-    const label = document.getElementById('map-count-label');
-    if (label) label.textContent = isPassive ? `Passive Data: ${finalTrackers.length} locations resolved` : `${finalTrackers.length} active server locations`;
-    return;
-  }
-  window.lastTrackerCount = finalTrackers.length;
-
-  if (leafletMap) {
-    trackerLayers.forEach(layer => leafletMap.removeLayer(layer));
-    trackerLayers = [];
-  }
-  
+  // ── Render Trackers (Dots and Red Lines) ──
   finalTrackers.forEach((tracker) => {
     try {
-      if (!tracker.lat || !tracker.lon) return;
-      
       const tLat = Number(tracker.lat);
       const tLon = Number(tracker.lon);
       if (isNaN(tLat) || isNaN(tLon)) return;
 
       const trackerPos = [tLat, tLon];
-      const domainStr = tracker.domain || tracker.name || '';
-      const isHighRisk = domainStr.includes('facebook') || domainStr.includes('google') || domainStr.includes('doubleclick');
-      const markerColor = isHighRisk ? '#ff3333' : '#f59e0b';
+      const markerColor = '#ff3333'; // Strictly red as requested
 
-      // Data Receiver Point
+      // The Dot
       const marker = L.circleMarker(trackerPos, {
-        radius: isHighRisk ? 10 : 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9,
-        className: 'tracker-marker'
+        radius: 8, fillColor: markerColor, color: '#ffffff', weight: 2, fillOpacity: 0.9,
+        className: 'tracker-dot animate-pulse'
       }).addTo(leafletMap);
 
-      marker.bindTooltip(`<b>🔴 DATA RECEIVER: ${tracker.name || domainStr || 'Unknown Server'}</b><br>📍 Location: ${tracker.city || 'Unknown'}<br>🌐 Destination IP: ${tracker.ip || 'Masked'}`);
+      marker.bindTooltip(`<b>🔴 THREAT: ${tracker.name || 'Unknown Tracker'}</b><br>📍 Location: ${tracker.city || 'Unknown'}`);
       trackerLayers.push(marker);
 
-      // Path of Data Travel (The Piping)
+      // The Red Line
       const line = L.polyline([userPos, trackerPos], {
-        color: isHighRisk ? 'rgba(255,51,51,0.8)' : 'rgba(245,158,11,0.7)',
-        weight: 3, dashArray: '8, 12', opacity: 0.9,
+        color: 'rgba(255, 51, 51, 0.7)',
+        weight: 2, dashArray: '10, 10', opacity: 0.8,
         className: 'tracker-pipe'
       }).addTo(leafletMap);
       
-      // Add arrow heads or flow animation to lines
-      line.on('add', () => {
-        const el = line.getElement();
-        if (el) {
-          el.style.strokeDasharray = '8, 12';
-          el.style.strokeDashoffset = '1000';
-          el.style.animation = 'dash-flow 15s linear infinite';
-        }
-      });
-      
       trackerLayers.push(line);
     } catch (e) {
-      console.error("[DataShadow] Error rendering tracker on map:", e, tracker);
+      console.error("[DataShadow] Map error:", e);
     }
   });
 
-  // Auto-fit bounds when new trackers appear so they are visible
-  setTimeout(() => {
-    try {
-      if (leafletMap && trackerLayers.length > 0) {
-        const markers = trackerLayers.filter(l => l instanceof L.CircleMarker);
-        if (userMarker) markers.push(userMarker);
-        if (markers.length > 0) {
-          const group = new L.featureGroup(markers);
-          leafletMap.flyToBounds(group.getBounds(), { padding: [80, 80], maxZoom: 6 });
-        }
-      }
-    } catch(e) {
-      console.error("[DataShadow] Error flying to bounds:", e);
-    }
-  }, 500);
-
   const label = document.getElementById('map-count-label');
-  if (label) label.textContent = isPassive ? `Passive Data: ${finalTrackers.length} locations resolved` : `${finalTrackers.length} active server locations`;
+  if (label) label.textContent = currentSiteTrackers.length > 0 ? `LIVE THREATS ON THIS SITE: ${currentSiteTrackers.length}` : `${finalTrackers.length} global server locations detected`;
+
+  // Auto-zoom to fit the threats on switch
+  if (finalTrackers.length > 0) {
+    const markers = [...trackerLayers.filter(l => l instanceof L.CircleMarker), userMarker];
+    const group = new L.featureGroup(markers);
+    leafletMap.flyToBounds(group.getBounds(), { padding: [100, 100], maxZoom: 5 });
+  }
 }
 
 // ── Data Breakdown Panel ──

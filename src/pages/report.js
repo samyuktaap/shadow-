@@ -210,6 +210,64 @@ document.addEventListener('DOMContentLoaded', async () => {
           listElem.innerHTML = '<div style="color: #94a3b8; font-size: 13px;">No specific recommendations.</div>';
         }
       }
+      // Update Aggression Meter
+      const aggressionScore = document.getElementById('aggression-score');
+      const aggressionLabel = document.getElementById('aggression-label');
+      if (aggressionScore) aggressionScore.innerText = score;
+      if (aggressionLabel) {
+        if (score > 70) { aggressionLabel.innerText = 'CRITICAL EXPOSURE'; aggressionLabel.style.color = '#ff3333'; }
+        else if (score > 40) { aggressionLabel.innerText = 'ELEVATED RISK'; aggressionLabel.style.color = '#f59e0b'; }
+        else { aggressionLabel.innerText = 'SECURE PARAMETER'; aggressionLabel.style.color = '#00ff88'; }
+      }
+
+      // ── EXPORT DOSSIER LOGIC ──
+      const downloadBtn = document.getElementById('download-report');
+      if (downloadBtn) {
+        downloadBtn.onclick = () => {
+          const reportData = data.lastAnalysis;
+          const dossierText = `
+=========================================
+      DATASHADOW INTELLIGENCE DOSSIER
+=========================================
+TARGET DOMAIN: ${reportData.domain}
+GENERATED AT: ${new Date().toLocaleString()}
+AGGRESSION SCORE: ${score}/100
+RISK LEVEL: ${reportData.riskClassification?.risk_label || reportData.riskLevel}
+
+-----------------------------------------
+DETECTED TRACKERS (${reportData.cookieCount}):
+${(reportData.trackerNames || []).map(t => " - " + t).join('\n')}
+
+-----------------------------------------
+DANGEROUS DATA FIELDS:
+${(reportData.dangerousFields || []).map(f => " [!] " + f).join('\n')}
+
+-----------------------------------------
+AI PREDICTION (Random Forest):
+Predicted Risk: ${aiPrediction.predicted_risk_level}
+Confidence: ${aiPrediction.confidence_score}%
+Explanation: ${aiPrediction.model_explanation}
+
+-----------------------------------------
+PRIORITY RECOMMENDATION:
+${aiRecommendations.priority_action}
+
+=========================================
+      SHIELD ACTIVE - DATA SECURED
+=========================================
+          `.trim();
+
+          const blob = new Blob([dossierText], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `DataShadow_Dossier_${reportData.domain.replace(/\./g, '_')}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+      }
     } else {
       document.getElementById('domain-display').innerText = `⚠️ No Data`;
       document.getElementById('danger-list').innerHTML = '<div style="color:#ffaa00; font-size:14px;">Please visit a website and refresh the page to generate a report.</div>';
