@@ -122,9 +122,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // Glow effect
-    ctx.shadowColor = 'rgba(56, 189, 248, 0.8)';
+    ctx.shadowColor = 'rgba(255, 136, 0, 0.8)';
     ctx.shadowBlur = 10;
-    ctx.strokeStyle = '#38bdf8';
+    ctx.strokeStyle = '#ff8800';
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.shadowBlur = 0; // reset
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ctx.arc(getX(i), getY(dataPts[i].privacyScore), 4, 0, Math.PI * 2);
       ctx.fillStyle = '#fff';
       ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = '#ff8800';
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const expEl = document.getElementById('modal-exposure');
     expEl.innerText = entry.exposureLevel;
-    expEl.style.color = entry.exposureLevel === 'HIGH' ? '#ff3333' : (entry.exposureLevel === 'MEDIUM' ? '#ffaa00' : '#00ff88');
+    expEl.style.color = entry.exposureLevel === 'HIGH' ? '#ff3333' : '#ff8800';
 
     document.getElementById('modal-permissions').innerText = entry.permissions && entry.permissions.length > 0 ? entry.permissions.join(', ') : 'None';
 
@@ -218,8 +218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       trend.style.background = "rgba(255,51,51,0.1)";
     } else {
       trend.innerText = "Tracking exposure is well contained.";
-      trend.style.color = "#00ff88";
-      trend.style.background = "rgba(0,255,136,0.1)";
+      trend.style.color = "#ff8800";
+      trend.style.background = "rgba(255,136,0,0.1)";
     }
 
     modal.style.display = 'flex';
