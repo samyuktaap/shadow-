@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DataShadow — Full Shadow Report</title>
+  <title>Intelligence Dossier — DataShadow</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --red: #ff3333; --blue: #38bdf8; }
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #0a0a0a;
@@ -12,17 +14,64 @@
       min-height: 100vh;
       padding: 30px;
     }
-    .header {
+    .dossier-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 30px;
-      border-bottom: 1px solid #222;
-      padding-bottom: 20px;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    .logo { font-size: 28px; font-weight: bold; color: #ff3333; }
-    .logo span { color: white; }
-    .subtitle { color: #888; font-size: 14px; margin-top: 4px; }
+    .dossier-title { font-size: 28px; font-weight: bold; color: var(--red); }
+    .dossier-subtitle { color: #888; font-size: 14px; margin-top: 4px; }
+    
+    .download-btn {
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.3);
+      color: var(--blue);
+      padding: 8px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .download-btn:hover {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .aggression-meter {
+      background: rgba(255,51,51,0.05);
+      border: 1px solid rgba(255,51,51,0.2);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+    .aggression-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+    .aggression-value {
+      font-size: 48px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(255,51,51,0.4);
+    }
+    .aggression-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--red);
+      margin-top: 5px;
+    }
 
     .dash-nav { display: flex; gap: 8px; margin-top: 15px; }
     .dash-nav a {
@@ -112,21 +161,29 @@
 </head>
 <body>
 
-  <div class="header" style="align-items: center;">
+  <div class="dossier-header">
     <div>
-      <div class="logo">Data<span>Shadow</span></div>
-      <div class="subtitle">Full Privacy Shadow Report</div>
+      <div class="dossier-title">INTELLIGENCE DOSSIER</div>
+      <div class="dossier-subtitle" id="domain-display">🌐 Loading...</div>
     </div>
-    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 15px;">
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
       <div class="dash-nav" style="margin-top: 0;">
-        <a href="#" id="nav-dashboard">Dashboard</a>
-        <a href="#" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
-        <a href="#" id="nav-whatif">What-If</a>
-        <a href="#" class="active" id="nav-report">Full Report</a>
-        <a href="#" id="nav-history">History</a>
+        <a href="dashboard.html" id="nav-dashboard">Dashboard</a>
+        <a href="pro.html" id="nav-pro">Pro <span class="pro-tag">NEW</span></a>
+        <a href="whatif.html" id="nav-whatif">What-If</a>
+        <a href="report.html" class="active" id="nav-report">Full Report</a>
+        <a href="history.html" id="nav-history">History</a>
       </div>
-      <div id="domain-display" style="color:#888; font-size:14px;">Loading...</div>
+      <button class="download-btn" id="download-report">
+        <i class="fas fa-download"></i> EXPORT DOSSIER
+      </button>
     </div>
+  </div>
+
+  <div class="aggression-meter">
+    <div class="aggression-title">Aggression Score</div>
+    <div class="aggression-value" id="aggression-score">0</div>
+    <div class="aggression-label" id="aggression-label">SCANNING...</div>
   </div>
 
   <!-- Score Cards -->
