@@ -268,7 +268,19 @@ let FLOW_GROUP = null;
 
 async function initInteractiveMap(trackers) {
   const container = document.getElementById('map-container');
-  if (!container || !window.L) return;
+  if (!container) return;
+
+  // Wait for Leaflet to be available (retry loop)
+  let attempts = 0;
+  while (!window.L && attempts < 30) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+
+  if (!window.L) {
+    container.innerHTML = '<div style="padding:20px;color:var(--red);text-align:center;">Map library failed to initialize. Please refresh.</div>';
+    return;
+  }
 
   // 1. Initialize Map
   if (!MAP_INSTANCE) {
