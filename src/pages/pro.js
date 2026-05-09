@@ -273,9 +273,9 @@ function renderExposureIndicator(count) {
 
   const statusEl = document.getElementById('broker-status');
   let level = "LOW";
-  let color = "var(--orange)";
+  let color = "var(--red)";
   if (count > 10) { level = "CRITICAL"; color = "var(--red)"; }
-  else if (count > 0) { level = "MODERATE"; color = "var(--orange)"; }
+  else if (count > 0) { level = "MODERATE"; color = "var(--red)"; opacity: 0.8; }
 
   const indicator = document.createElement('div');
   indicator.id = 'exposure-indicator';
@@ -299,7 +299,7 @@ function renderBrokers(grid, sent) {
         <div class="broker-logo">${b.icon}</div>
         <div style="flex:1;min-width:0">
           <div class="broker-name">${b.name}</div>
-          <div class="broker-type">${b.type} · <span style="color:${b.risk === 'High' ? 'var(--red)' : 'var(--orange)'}">${b.risk} THREAT</span></div>
+          <div class="broker-type">${b.type} · <span style="color:var(--red);">${b.risk} THREAT</span></div>
           <div class="broker-data">📋 DATA VECTORS: ${b.data}</div>
         </div>
         <div class="broker-actions">
@@ -405,8 +405,8 @@ function initEmailMasking() {
     
     // Typewriter effect
     aliasText.textContent = "";
-    aliasText.style.color = 'var(--orange)';
-    aliasText.style.textShadow = '0 0 10px var(--orange-glow)';
+    aliasText.style.color = 'var(--red)';
+    aliasText.style.textShadow = '0 0 15px var(--red-glow)';
     
     for (let char of alias) {
       aliasText.textContent += char;
@@ -453,19 +453,19 @@ function renderAliases(aliases, container) {
   }
 
   container.innerHTML = aliases.map((a, i) => `
-    <div class="item-row" style="border-left: 3px solid var(--orange);">
+    <div class="item-row" style="border-left: 4px solid var(--red);">
       <div class="item-icon">🎭</div>
       <div style="flex: 1">
-        <div style="font-family: 'Courier New', monospace; font-size: 15px; font-weight: 800; color: var(--orange);">${a.email}</div>
-        <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
-          <span style="font-size: 10px; color: var(--orange); font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">Ghost Relay Active</span>
-          <span style="font-size: 10px; color: var(--sub); font-weight: 600;">Tunneling to secure inbox</span>
-          <span style="font-size: 10px; color: var(--muted); margin-left: auto; font-weight: 700;">${timeAgo(a.created)}</span>
+        <div style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: 900; color: var(--red);">${a.email}</div>
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 6px;">
+          <span style="font-size: 11px; color: var(--red); font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase;">Relay Active</span>
+          <span style="font-size: 11px; color: var(--sub); font-weight: 700;">Secure Tunneling</span>
+          <span style="font-size: 11px; color: var(--muted); margin-left: auto; font-weight: 800;">${timeAgo(a.created)}</span>
         </div>
       </div>
-      <div style="display: flex; gap: 8px;">
+      <div style="display: flex; gap: 10px;">
         <button data-idx="${i}" class="copy-btn alias-copy-btn">COPY</button>
-        <button data-idx="${i}" class="alias-del-btn" style="background: rgba(255,51,51,0.1); border: 1px solid rgba(255,51,51,0.2); color: var(--red); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 14px;">🗑️</button>
+        <button data-idx="${i}" class="alias-del-btn" style="background: rgba(255,51,51,0.1); border: 1px solid var(--red); color: var(--red); padding: 10px 14px; cursor: pointer; font-size: 16px;">🗑️</button>
       </div>
     </div>
   `).join('');
