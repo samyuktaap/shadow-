@@ -1,4 +1,22 @@
 // DataShadow Value Dashboard — Enhanced Logic
+(function() {
+  const debug = document.createElement('div');
+  debug.id = 'debug-log';
+  debug.style = "position:fixed;bottom:10px;right:10px;width:300px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.9);color:#00ff88;font-family:monospace;font-size:10px;padding:10px;border-radius:10px;z-index:99999;border:1px solid rgba(0,255,136,0.2);display:none;";
+  document.body.appendChild(debug);
+  
+  window.onerror = function(m, u, l) {
+    debug.style.display = 'block';
+    debug.innerHTML += `<div style="color:#ff4444;margin-bottom:4px;">[ERR] L${l}: ${m}</div>`;
+  };
+  console.log = (function(old) {
+    return function() {
+      old.apply(console, arguments);
+      debug.style.display = 'block';
+      debug.innerHTML += `<div style="margin-bottom:4px;">[LOG] ${Array.from(arguments).join(' ')}</div>`;
+    };
+  })(console.log);
+})();
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Bulletproof context check: Allow dashboard to run even as a local file for demos
@@ -284,12 +302,21 @@ async function initInteractiveMap(trackers) {
 
   // 1. Initialize Map
   if (!MAP_INSTANCE) {
-    MAP_INSTANCE = L.map('map-container', {
-      center: [20, 0],
-      zoom: 2,
-      zoomControl: false,
-      attributionControl: false
-    });
+    try {
+      // Ensure container is ready and has height
+      container.style.height = '450px';
+      
+      MAP_INSTANCE = L.map('map-container', {
+        center: [20, 0],
+        zoom: 2,
+        zoomControl: false,
+        attributionControl: false
+      });
+      console.log("Leaflet initialized successfully");
+    } catch(err) {
+      console.error("Leaflet Init Error:", err);
+      return;
+    }
 
     // Dark Premium Tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
