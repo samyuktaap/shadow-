@@ -286,7 +286,8 @@ function getWeekStats(wd) {
 // ── Weekly Bar Chart ──
 function renderWeeklyChart(wd) {
   const c = document.getElementById('weekly-chart');
-  c.innerHTML = '';
+  if (!c) return;
+  
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const now = new Date();
   let max = 1;
@@ -295,28 +296,43 @@ function renderWeeklyChart(wd) {
     const d = new Date(now); d.setDate(d.getDate() - i);
     const k = d.toISOString().split('T')[0];
     const b = wd[k]?.blocked || 0;
-    items.push({ day: days[d.getDay()], blocked: b, isToday: i === 0 });
+    items.push({ day: days[d.getDay()], blocked: b, isToday: i === 0, key: k });
     if (b > max) max = b;
   }
 
-  // Update subtitle with total
+  // Update subtitle
   const total = items.reduce((s,x) => s + x.blocked, 0);
   const sub = document.getElementById('chart-subtitle');
   if (sub) sub.textContent = `${total.toLocaleString()} blocked this week`;
 
   items.forEach((item, idx) => {
-    const row = document.createElement('div');
-    row.className = 'chart-bar-row' + (item.isToday ? ' today' : '');
-    const pct = Math.max(6, (item.blocked / max) * 100);
-    row.innerHTML = `
-      <div class="chart-day">${item.day}</div>
-      <div class="chart-bar-track">
-        <div class="chart-bar-fill" style="width:0%">${item.blocked}</div>
-      </div>`;
-    c.appendChild(row);
+    // Check if row already exists for this day (by day name)
+    let row = c.querySelector(`.chart-bar-row[data-day="${item.day}"]`);
+    let fill;
+    
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'chart-bar-row' + (item.isToday ? ' today' : '');
+      row.setAttribute('data-day', item.day);
+      row.innerHTML = `
+        <div class="chart-day">${item.day}</div>
+        <div class="chart-bar-track">
+          <div class="chart-bar-fill" style="width:0%">0</div>
+        </div>`;
+      c.appendChild(row);
+      fill = row.querySelector('.chart-bar-fill');
+    } else {
+      fill = row.querySelector('.chart-bar-fill');
+    }
+
+    const pct = Math.max(8, (item.blocked / max) * 100);
+    
+    // Only update if value changed or first load
     setTimeout(() => {
-      row.querySelector('.chart-bar-fill').style.width = pct + '%';
-    }, 120 + idx * 90);
+      fill.style.width = pct + '%';
+      fill.textContent = item.blocked;
+      fill.classList.add('finished'); // Start subtle shimmer
+    }, 100 + idx * 40);
   });
 }
 

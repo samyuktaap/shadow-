@@ -266,6 +266,16 @@
       box-shadow: 0 0 12px rgba(255,53,0,0.4);
     }
 
+    /* Subtle Shimmer for "Min Movement" */
+    @keyframes bar-shimmer {
+      0% { opacity: 0.85; filter: brightness(1); }
+      50% { opacity: 1; filter: brightness(1.15); }
+      100% { opacity: 0.85; filter: brightness(1); }
+    }
+    .chart-bar-fill.finished {
+      animation: bar-shimmer 4s ease-in-out infinite;
+    }
+
     /* ── Privacy World Map ── */
     .map-wrapper { grid-column: 1 / -1; }
     .map-container {
