@@ -477,20 +477,47 @@ async function getRealUserLocation() {
  */
 function getTrackerLocation(domain) {
   if (!domain) return null;
-  const match = TRACKER_LOCATIONS.find(t => domain.toLowerCase().includes(t.domain.toLowerCase()) || t.name.toLowerCase().includes(domain.toLowerCase()));
+  const lowerDomain = domain.toLowerCase();
+  
+  // 1. Check Hardcoded Database (Fastest)
+  const match = TRACKER_LOCATIONS.find(t => lowerDomain.includes(t.domain.toLowerCase()) || t.name.toLowerCase().includes(lowerDomain));
   if (match) return match;
+  
+  // 2. REGIONAL INTELLIGENCE RESOLVER (Zero-Latency API-less Geo)
+  const regions = [
+    { suffix: '.ru', lat: 55.75, lon: 37.61, city: 'Moscow, RU' },
+    { suffix: '.cn', lat: 39.90, lon: 116.40, city: 'Beijing, CN' },
+    { suffix: '.in', lat: 12.97, lon: 77.59, city: 'Bangalore, IN' },
+    { suffix: '.uk', lat: 51.50, lon: -0.12, city: 'London, UK' },
+    { suffix: '.de', lat: 52.52, lon: 13.40, city: 'Berlin, DE' },
+    { suffix: '.fr', lat: 48.85, lon: 2.35, city: 'Paris, FR' },
+    { suffix: '.br', lat: -23.55, lon: -46.63, city: 'Sao Paulo, BR' },
+    { suffix: '.jp', lat: 35.68, lon: 139.76, city: 'Tokyo, JP' },
+    { suffix: '.au', lat: -33.86, lon: 151.20, city: 'Sydney, AU' },
+    { suffix: '.ca', lat: 43.65, lon: -79.38, city: 'Toronto, CA' },
+    { suffix: '.eu', lat: 50.85, lon: 4.35, city: 'Brussels, EU' },
+    { suffix: '.kh', lat: 11.55, lon: 104.91, city: 'Phnom Penh, KH' },
+    { suffix: '.sg', lat: 1.35, lon: 103.81, city: 'Singapore, SG' },
+    { suffix: '.th', lat: 13.75, lon: 100.50, city: 'Bangkok, TH' }
+  ];
 
-  // Deterministic fallback for unknown trackers (spread them around the globe based on domain hash)
+  const regionMatch = regions.find(r => lowerDomain.endsWith(r.suffix));
+  if (regionMatch) {
+    return { ...regionMatch, name: domain, type: 'ad' };
+  }
+
+  // 3. DETERMINISTIC HASH FALLBACK (Spread unknown threats globally)
   let hash = 0;
   for (let i = 0; i < domain.length; i++) {
     hash = ((hash << 5) - hash) + domain.charCodeAt(i);
     hash |= 0;
   }
+  
   return {
     name: domain,
-    lat: (Math.abs(hash % 120) - 60), // Randomish lat between -60 and 60
-    lon: (Math.abs((hash * 13) % 360) - 180), // Randomish lon between -180 and 180
-    city: 'Distributed Server',
+    lat: (Math.abs(hash % 120) - 60), 
+    lon: (Math.abs((hash * 17) % 360) - 180), 
+    city: 'Distributed Network',
     type: 'ad'
   };
 }
@@ -529,8 +556,11 @@ async function renderPrivacyMap(providedTrackers) {
   let currentSiteTrackers = [];
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     const res = await new Promise(r => chrome.storage.local.get(['currentSiteStats'], r));
-    if (res.currentSiteStats && res.currentSiteStats.trackerNames) {
-      currentSiteTrackers = res.currentSiteStats.trackerNames.map(name => getTrackerLocation(name)).filter(t => t);
+    if (res.currentSiteStats) {
+      const names = res.currentSiteStats.trackerNames || [];
+      // Always include the site domain itself as the primary destination
+      const allDomains = [res.currentSiteStats.domain, ...names];
+      currentSiteTrackers = allDomains.map(name => getTrackerLocation(name)).filter(t => t);
     }
   }
 
