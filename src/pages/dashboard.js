@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (logoutBtn) {
     logoutBtn.onclick = async () => {
       if (isExt) {
-        await chrome.storage.local.remove(['supabaseToken', 'supabaseUser', 'dashboardStats', 'activityLog']);
+        await chrome.storage.local.remove(['supabaseToken', 'supabaseUser']);
       }
       window.location.reload();
     };
@@ -83,6 +83,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (message.type === 'FINGERPRINT_ATTEMPT') {
         handleFingerprintAlert(message);
+      }
+    });
+
+    // Force re-analysis of current tab when dashboard opens
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0] && tabs[0].url && tabs[0].url.startsWith('http')) {
+        chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' });
       }
     });
   }
@@ -229,59 +236,50 @@ function loadDashboardData() {
       logoEl.innerHTML = `<span class="data">Monitoring:</span> <span class="shadow">${siteStats.domain}</span>`;
     }
 
-    // ── SEED DATA FALLBACK (Restore Demo Experience) ──
-    const isNewUser = !stats.totalBlocked || stats.totalBlocked === 0;
-    if (isNewUser) {
-      stats.totalBlocked = 1420;
-      stats.totalDataSaved = 85000000; // 85 MB
-      stats.sessionsProtected = 42;
-      stats.cookiesCleaned = 812;
-      stats.protectedDomains = ['google.com', 'facebook.com', 'amazon.com', 'nytimes.com'];
-
-      // Generate some fake weekly data
-      const now = new Date();
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(now); d.setDate(d.getDate() - i);
-        const k = d.toISOString().split('T')[0];
-        stats.weeklyData[k] = { blocked: Math.floor(Math.random() * 200) + 100, dataSaved: Math.floor(Math.random() * 1000000) };
-      }
-
-      if (!res.activityLog || res.activityLog.length === 0) {
-        res.activityLog = [
-          { type: 'block', message: 'Neutralized tracking attempt from <strong>doubleclick.net</strong>', timestamp: Date.now() - 5000 },
-          { type: 'shield', message: 'Shadow Shield established secure tunnel for <strong>google.com</strong>', timestamp: Date.now() - 15000 },
-          { type: 'clean', message: 'Successfully erased 12 tracking cookies from <strong>amazon.com</strong>', timestamp: Date.now() - 60000 }
-        ];
-      }
-
-      // Seed Map Data
-      stats.geoTrackers = [
-        { name: 'Google Ads', domain: 'doubleclick.net', lat: 37.4, lon: -122.1, city: 'California, US' },
-        { name: 'Facebook Tracker', domain: 'facebook.com', lat: 37.5, lon: -122.1, city: 'California, US' },
-        { name: 'Amazon Cloud', domain: 'aws.amazon.com', lat: 47.6, lon: -122.3, city: 'Seattle, US' },
-        { name: 'Azure Core', domain: 'microsoft.com', lat: 53.3, lon: -6.2, city: 'Dublin, Ireland' }
-      ];
+    // ── DATA PURITY ENGINE: No fake/seed data allowed ──
+    const isNewUser = !stats.totalBlocked && !stats.cookiesCleaned && !stats.sessionsProtected;
+    if (isNewUser && (!res.activityLog || res.activityLog.length === 0)) {
+        res.activityLog = [];
     }
 
-    // ── PRIMARY HERO STATS ──
+    // ── PRIMARY HERO STATS (Strictly Individual Site Data) ──
+    const currentSite = res.currentSiteStats || {};
+    const siteTrackers = currentSite.trackersFound || 0;
+    const siteCookies = currentSite.cookieCount || 0;
+    const siteDataSaved = currentSite.bytesSaved || 0;
+    
     const lifetimeTrackers = stats.totalBlocked || 0;
     const lifetimeCookies = stats.cookiesCleaned || 0;
-    const lifetimeSessions = stats.sessionsProtected || 0;
+    const lifetimeWebsites = (stats.protectedDomains && stats.protectedDomains.length) ? stats.protectedDomains.length : (stats.sessionsProtected || 0);
     const lifetimeData = stats.totalDataSaved || 0;
-    const lifetimeMarketVal = (lifetimeTrackers * 0.12) + (lifetimeCookies * 0.05) + (lifetimeSessions * 0.02);
+    
+    // EXPLICIT INDIVIDUAL DATA: Only show what happened on THIS site in the big cards
+    const displayTrackers = siteTrackers;
+    const displayCookies = siteCookies;
+    const displayData = siteDataSaved;
+    const lifetimeMarketVal = (lifetimeTrackers * 0.005) + (lifetimeCookies * 0.002) + (lifetimeWebsites * 0.10); // Industry-standard realistic valuation
 
     // Update Big Numbers
-    animateCounter('total-blocked', lifetimeTrackers);
-    animateCounter('sessions-protected', lifetimeSessions);
-    animateCounter('cookies-cleaned', lifetimeCookies);
+    animateCounter('total-blocked', displayTrackers);
+    animateCounter('sessions-protected', lifetimeWebsites);
+    animateCounter('cookies-cleaned', displayCookies);
 
-    // Data saved
-    if (lifetimeData === 0) {
-      document.getElementById('data-saved').innerHTML = '0<span style="font-size: 16px; color: var(--sub);"> KB</span>';
-    } else {
-      const target = lifetimeData > 1048576 ? (lifetimeData / 1048576).toFixed(1) : Math.round(lifetimeData / 1024);
-      const suffix = lifetimeData > 1048576 ? ' MB' : ' KB';
-      animateCounterFloat('data-saved', parseFloat(target), suffix);
+    // Update Subtitles/Labels to indicate Site-Specific data
+    if (siteTrackers > 0 || siteCookies > 0) {
+      const siteBlockedEl = document.getElementById('current-site-blocked');
+      if (siteBlockedEl) siteBlockedEl.textContent = `Neutralized on ${currentSite.domain || 'this site'}`;
+    }
+
+    // Data saved formatting
+    const dsEl = document.getElementById('data-saved');
+    if (dsEl) {
+      if (displayData === 0) {
+        dsEl.textContent = '0 KB';
+      } else if (displayData > 1000000) {
+        dsEl.textContent = (displayData / 1000000).toFixed(1) + ' MB';
+      } else {
+        dsEl.textContent = (displayData / 1000).toFixed(1) + ' KB';
+      }
     }
 
     animateCounterFloat('market-value', lifetimeMarketVal, '$', true);

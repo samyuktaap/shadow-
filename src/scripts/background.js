@@ -74,29 +74,48 @@ if (chrome.declarativeNetRequest && chrome.declarativeNetRequest.onRuleMatchedDe
   });
 }
 
-// ── AI Risk Processor ────────────────────────────────────────────────────────
+// ── AI Risk Processor (LIVE FEED) ───────────────────────────────────────────
 async function updateAIRisk(domain) {
-  const { lastAnalysis, dashboardStats } = await chrome.storage.local.get(['lastAnalysis', 'dashboardStats']);
-  if (!lastAnalysis || lastAnalysis.domain !== domain) return;
+  const data = await chrome.storage.local.get(['currentSiteStats', 'dashboardStats']);
+  const currentSiteStats = data.currentSiteStats || {};
+  
+  if (currentSiteStats.domain !== domain && domain !== 'Active Site') return;
 
-  // Calculate risk based on LIVE data
-  const stats = dashboardStats || {};
-  const trackersCaught = (stats.geoTrackers || []).filter(t => t.domain.includes(domain)).length;
+  // Calculate live aggression score based on blocked trackers + static scan
+  const trackersCaught = currentSiteStats.trackersFound || 0;
+  const cookiesFound = currentSiteStats.cookieCount || 0;
   
-  // Risk Heuristics
-  let riskScore = 30; // Base risk
-  riskScore += trackersCaught * 8; // Each live tracker adds risk
+  // High-fidelity scoring formula
+  let liveScore = (trackersCaught * 12) + (cookiesFound * 2);
   
-  // Add jurisdiction risk (e.g., data going to certain locations)
-  const jurisdictions = (stats.geoTrackers || []).map(t => t.country);
-  if (jurisdictions.includes('Russia') || jurisdictions.includes('China')) riskScore += 15;
+  // Add category-based weight (if we have tracker names)
+  if (currentSiteStats.trackerNames) {
+    currentSiteStats.trackerNames.forEach(name => {
+      if (name.includes('facebook') || name.includes('google')) liveScore += 10;
+      if (name.includes('ads') || name.includes('pixel')) liveScore += 15;
+    });
+  }
+
+  liveScore = Math.min(100, liveScore);
   
-  riskScore = Math.min(98, riskScore); // Cap at 98%
+  // Update the stats object used by the dashboard
+  currentSiteStats.score = liveScore;
+  currentSiteStats.riskLevel = liveScore >= 75 ? 'CRITICAL' : (liveScore >= 40 ? 'ELEVATED' : 'SECURE');
   
-  lastAnalysis.aiRiskScore = riskScore;
-  lastAnalysis.aiRiskLevel = riskScore > 75 ? 'CRITICAL' : (riskScore > 45 ? 'HIGH' : 'MODERATE');
-  
-  await chrome.storage.local.set({ lastAnalysis });
+  await chrome.storage.local.set({ 
+    currentSiteStats,
+    lastAnalysis: currentSiteStats // Keep in sync
+  });
+
+  // Broadcast to dashboard
+  chrome.runtime.sendMessage({
+    type: 'TELEMETRY_UPDATE',
+    data: {
+      site: domain,
+      score: liveScore,
+      stats: currentSiteStats
+    }
+  }).catch(() => {});
 }
 
 // ── Stats Engine ─────────────────────────────────────────────────────────────
@@ -156,6 +175,8 @@ function todayKey() {
 
 // Record a block event (called when shield is on and trackers are detected)
 let blockQueue = 0;
+let bytesQueue = 0;
+let valueQueue = 0;
 let blockTimeout = null;
 let geoCache = {}; // In-memory cache for the current session
 
@@ -201,11 +222,12 @@ async function resolveTrackerGeo(domain) {
 async function recordBlockEvent(count, siteDomain, trackerDomain = null, resourceType = 'script') {
   if (count <= 0) return;
   
-  blockQueue += count;
-  
-  // 1. Calculate REAL metrics
   const bytesSaved = TelemetryProcessor.estimateSavedBytes(resourceType) * count;
-  const valueSaved = (count * 0.12); // Industry avg for user data point
+  const valueSaved = (count * 0.005);
+  
+  blockQueue += count;
+  bytesQueue += bytesSaved;
+  valueQueue += valueSaved;
   
   // 2. Determine Classification
   let category = 'analytics';
@@ -221,7 +243,12 @@ async function recordBlockEvent(count, siteDomain, trackerDomain = null, resourc
   
   blockTimeout = setTimeout(async () => {
     const currentCount = blockQueue;
+    const currentBytes = bytesQueue;
+    const currentValue = valueQueue;
+    
     blockQueue = 0;
+    bytesQueue = 0;
+    valueQueue = 0;
     blockTimeout = null;
     
     await ensureStatsInitialized();
@@ -232,12 +259,12 @@ async function recordBlockEvent(count, siteDomain, trackerDomain = null, resourc
     ensureTodayBucket(stats);
   
     stats.totalBlocked += currentCount;
-    stats.totalDataSaved += bytesSaved;
-    stats.totalMarketValue = (stats.totalMarketValue || 0) + valueSaved;
+    stats.totalDataSaved += currentBytes;
+    stats.totalMarketValue = (stats.totalMarketValue || 0) + currentValue;
 
     stats.weeklyData[key].blocked += currentCount;
-    stats.weeklyData[key].dataSaved += bytesSaved;
-    stats.weeklyData[key].marketValue = (stats.weeklyData[key].marketValue || 0) + valueSaved;
+    stats.weeklyData[key].dataSaved += currentBytes;
+    stats.weeklyData[key].marketValue = (stats.weeklyData[key].marketValue || 0) + currentValue;
   
     const newEntry = {
       type: 'block',
@@ -249,7 +276,16 @@ async function recordBlockEvent(count, siteDomain, trackerDomain = null, resourc
   
     const updatedLog = [...activityLog, newEntry].slice(-100);
     
-    // 4. Update Geo-Map data
+    // 4. Update Current Site Stats in real-time (INDIVIDUAL DATA)
+    const data_site = await chrome.storage.local.get('currentSiteStats');
+    const currentSiteStats = data_site.currentSiteStats || {};
+    if (currentSiteStats.domain === siteDomain || siteDomain === 'Active Site') {
+      currentSiteStats.trackersFound = (currentSiteStats.trackersFound || 0) + currentCount;
+      currentSiteStats.bytesSaved = (currentSiteStats.bytesSaved || 0) + currentBytes;
+      currentSiteStats.trackerNames = [...new Set([...(currentSiteStats.trackerNames || []), trackerDomain])];
+    }
+    
+    // 5. Update Geo-Map data
     const domainToResolve = trackerDomain || siteDomain;
     const geo = await resolveTrackerGeo(domainToResolve);
     if (geo) {
@@ -261,7 +297,11 @@ async function recordBlockEvent(count, siteDomain, trackerDomain = null, resourc
       }
     }
 
-    await chrome.storage.local.set({ dashboardStats: stats, activityLog: updatedLog });
+    await chrome.storage.local.set({ 
+      dashboardStats: stats, 
+      activityLog: updatedLog,
+      currentSiteStats: currentSiteStats
+    });
 
     // 5. LIVE TELEMETRY BROADCAST
     chrome.runtime.sendMessage({
@@ -269,7 +309,7 @@ async function recordBlockEvent(count, siteDomain, trackerDomain = null, resourc
       data: {
         site: siteDomain,
         blockedCount: currentCount,
-        bytesSaved: bytesSaved,
+        bytesSaved: currentBytes,
         category: category,
         stats: stats,
         newEntry: newEntry
@@ -704,7 +744,8 @@ async function analyzeDomain(tabId, url) {
       aiPrediction: rfPrediction,
       riskClassification: classification,
       aiRecommendations: privacyRecommendations,
-      marketValue: parseFloat(estimatedValue.toFixed(2)) // Added for hackathon "Wow" factor
+      marketValue: parseFloat(estimatedValue.toFixed(2)),
+      bytesSaved: trackersFound * (TelemetryProcessor.RESOURCE_SIZES.script || 35000)
     };
 
     // Save to storage so dashboard and popup can read it
@@ -853,7 +894,7 @@ const TRACKER_BLOCKLIST = [
   'segment.com', 'amplitude.com', 'newrelic.com', 'nr-data.net',
   'scorecardresearch.com', 'quantserve.com', 'chartbeat.com',
   // Social Tracking Pixels
-  'facebook.com/tr', 'facebook.net', 'connect.facebook.net',
+  'facebook.com', 'facebook.net', 'connect.facebook.net',
   'pixel.facebook.com', 'analytics.twitter.com', 't.co',
   'snap.licdn.com', 'px.ads.linkedin.com', 'bat.bing.com',
   // Data Brokers / Fingerprinting

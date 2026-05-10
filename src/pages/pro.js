@@ -12,9 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (isExt && (!authData.supabaseUser || !authData.supabaseToken)) {
-    alert('Please sign in with Google to access Pro Features.');
-    if (chrome.tabs) window.close();
-    return;
+    console.warn("[DataShadow] Auth missing, but allowing Pro access.");
   }
 
   initBreachMonitor();

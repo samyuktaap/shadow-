@@ -559,7 +559,7 @@
         </div>
         <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05);">
           <div style="font-size: 10px; color: var(--sub); text-transform: uppercase; font-weight: 800; margin-bottom: 5px;">Aggression Score</div>
-          <div id="aggression-score-val" style="font-size: 24px; font-weight: 900; color: var(--red);">0</div>
+          <div id="aggression-score-val" data-stat="aggression-score" style="font-size: 24px; font-weight: 900; color: var(--red);">0</div>
           <div style="height: 4px; background: rgba(0,0,0,0.3); border-radius: 2px; margin-top: 8px;">
             <div id="aggression-bar" style="height: 100%; width: 0%; background: var(--red); transition: width 0.5s ease;"></div>
           </div>
@@ -576,32 +576,28 @@
     <div class="stats-grid">
       <div class="stat-card red animate-in delay-1">
         <span class="stat-icon">🛡️</span>
-        <div class="stat-value" id="total-blocked">—</div>
+        <div class="stat-value" id="total-blocked" data-stat="neutralized-threats">—</div>
         <div class="stat-label">Neutralized Threats</div>
-        <div class="stat-change up" id="blocked-change">↑ loading…</div>
         <div id="current-site-blocked" style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">0 on this site</div>
       </div>
       <div class="stat-card orange animate-in delay-2">
         <span class="stat-icon">💾</span>
-        <div class="stat-value" id="data-saved">—</div>
+        <div class="stat-value" id="data-saved" data-stat="bandwidth-recovered">—</div>
         <div class="stat-label">Bandwidth Recovered</div>
-        <div class="stat-change up" id="data-change">↑ loading…</div>
       </div>
       <div class="stat-card red animate-in delay-3">
         <span class="stat-icon">🔒</span>
-        <div class="stat-value" id="sessions-protected">—</div>
-        <div class="stat-label">Privacy Tunnels</div>
-        <div class="stat-change info" id="sessions-change">↑ loading…</div>
+        <div class="stat-value" id="sessions-protected" data-stat="websites-tracked">—</div>
+        <div class="stat-label">Websites Tracked</div>
       </div>
       <div class="stat-card orange animate-in delay-4">
         <span class="stat-icon">🍪</span>
-        <div class="stat-value" id="cookies-cleaned">—</div>
+        <div class="stat-value" id="cookies-cleaned" data-stat="digital-trace">—</div>
         <div class="stat-label">Digital Trace Erasures</div>
-        <div class="stat-change up" id="cookies-change">↑ loading…</div>
       </div>
       <div class="stat-card amber animate-in delay-5">
         <span class="stat-icon">💎</span>
-        <div class="stat-value" id="market-value">$0.00</div>
+        <div class="stat-value" id="market-value" data-stat="market-value">$0.00</div>
         <div class="stat-label">Market Value Saved</div>
         <div class="stat-change info" style="background: rgba(245,158,11,0.08); color: var(--amber);">LIVE MARKET RATE</div>
       </div>

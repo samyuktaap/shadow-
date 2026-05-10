@@ -17,10 +17,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logoutBtn = document.getElementById('logout-btn');
 
   async function updateAuthUI() {
-    // Local mode: Always show info as 'Local User' or hide auth section
-    if (userInfo) userInfo.style.display = 'none';
-    if (loginBtn) loginBtn.style.display = 'none';
-    if (logoutBtn) logoutBtn.style.display = 'none';
+    const user = await chrome.storage.local.get(['supabaseUser', 'supabaseToken']);
+    const isLogged = !!user.supabaseUser;
+
+    if (userInfo) userInfo.style.display = isLogged ? 'block' : 'none';
+    if (loginBtn) loginBtn.style.display = isLogged ? 'none' : 'block';
+    if (logoutBtn) logoutBtn.style.display = isLogged ? 'block' : 'none';
+    
+    if (isLogged && userEmail) {
+      userEmail.textContent = user.supabaseUser.email;
+    }
 
     const premiumButtons = [
       document.getElementById('analyze-btn'),
@@ -28,12 +34,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('pro-btn')
     ];
 
-    // Always enable features in local mode
     premiumButtons.forEach(btn => {
       if (btn) {
         btn.style.opacity = '1';
         btn.style.pointerEvents = 'auto';
-        btn.title = '';
+      }
+    });
+  }
+
+  // Inline Google Login Logic
+  async function loginWithGoogle() {
+    const SUPABASE_URL = 'https://hayotpzqanmjpacmbwvd.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhheW90cHpxYW5tanBhY21id3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDYyODAsImV4cCI6MjA5MzgyMjI4MH0.G4hLJ80XO_9oOIyZizP4-weLApSOlk4KgmywL1oWiDw';
+    const redirectUrl = chrome.identity.getRedirectURL();
+    const authUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUrl)}`;
+
+    chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (redirectedTo) => {
+      if (redirectedTo) {
+        const hashStr = redirectedTo.includes('#') ? redirectedTo.split('#')[1] : redirectedTo.split('?')[1];
+        const params = new URLSearchParams(hashStr);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+
+        if (accessToken) {
+          const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'apikey': SUPABASE_ANON_KEY }
+          });
+          const user = await res.json();
+          await chrome.storage.local.set({ supabaseToken: accessToken, supabaseRefreshToken: refreshToken, supabaseUser: user });
+          updateAuthUI();
+        }
       }
     });
   }
